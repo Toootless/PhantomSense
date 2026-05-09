@@ -1,0 +1,49 @@
+# Build artifacts
+build/
+dist/
+*.o
+*.a
+*.so
+*.dylib
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+.venv/
+venv/
+ENV/
+env/
+.Python
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# ESP-IDF
+sdkconfig.old
+.idf_build_cache
+
+# Models
+models/*.h5
+models/*.tflite
+models/*.pb
+models/*.onnx
+
+# Logs
+*.log
+logs/
+
+# Node
+node_modules/
+npm-debug.log
+
+# Environment variables
+.env
+.env.local
