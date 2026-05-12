@@ -3,12 +3,14 @@
 #include "esp_event.h"
 #include "esp_log.h"
 #include "nvs_flash.h"
+#include "freertos/event_groups.h"
 #include <string.h>
 
 static const char *TAG = "WIFI_SETUP";
 static int retry_num = 0;
 static bool wifi_connected = false;
 static char ip_address[16] = {0};
+static void *g_event_group = NULL;
 
 static void wifi_event_handler(void* arg, esp_event_base_t event_base,
                               int32_t event_id, void* event_data) {
@@ -29,10 +31,15 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base,
         ESP_LOGI(TAG, "got ip: %s", ip_address);
         retry_num = 0;
         wifi_connected = true;
+        if (g_event_group) {
+            xEventGroupSetBits(g_event_group, BIT0);
+            ESP_LOGI(TAG, "WiFi connected event signaled to system");
+        }
     }
 }
 
-esp_err_t wifi_setup_init(const wifi_config_t *config) {
+esp_err_t wifi_setup_init(const phantom_wifi_config_t *config, void *event_group) {
+    g_event_group = event_group;
     ESP_LOGI(TAG, "WiFi Setup Starting");
     
     esp_err_t ret = nvs_flash_init();
@@ -64,7 +71,7 @@ esp_err_t wifi_setup_init(const wifi_config_t *config) {
 
     wifi_config_t wifi_config = {
         .sta = {
-            .threshold.authmode = WIFI_AUTH_WPA2,
+            .threshold.authmode = WIFI_AUTH_WPA2_PSK,
             .pmf_cfg = {
                 .capable = true,
                 .required = false
@@ -89,4 +96,19 @@ bool wifi_is_connected(void) {
 
 const char* wifi_get_ip_address(void) {
     return ip_address;
+}
+
+int wifi_get_rssi(void) {
+    if (!wifi_connected) {
+        return 0;
+    }
+    
+    wifi_ap_record_t ap_info;
+    esp_err_t err = esp_wifi_sta_get_ap_info(&ap_info);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "Failed to get AP info: %s", esp_err_to_name(err));
+        return 0;
+    }
+    
+    return ap_info.rssi;  // dBm
 }

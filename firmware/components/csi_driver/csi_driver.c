@@ -1,6 +1,7 @@
 #include "csi_driver.h"
 #include "esp_log.h"
 #include "esp_wifi.h"
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 #include <string.h>
@@ -125,15 +126,26 @@ esp_err_t csi_driver_start(void) {
 
     // Configure WiFi to capture CSI
     wifi_csi_config_t csi_config = {
-        .lte_enable = false,
-        .wifi_enable = true,
-        .from_ch = 1,
-        .to_ch = 13,
+        .lltf_en = true,           // Enable LLTF data capture
+        .htltf_en = true,          // Enable HTLTF data capture
+        .stbc_htltf2_en = true,    // Enable STBC HTLTF2 data
+        .ltf_merge_en = true,      // Enable LTF merge
+        .channel_filter_en = true, // Enable channel filter
+        .manu_scale = false,       // Use automatic scaling
+        .shift = 0,
+        .dump_ack_en = false,      // Don't dump ACK frames
     };
 
     esp_err_t ret = esp_wifi_set_csi_config(&csi_config);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "Failed to configure WiFi CSI: %s", esp_err_to_name(ret));
+        return ret;
+    }
+
+    // Enable CSI capture
+    ret = esp_wifi_set_csi(true);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to enable WiFi CSI: %s", esp_err_to_name(ret));
         return ret;
     }
 

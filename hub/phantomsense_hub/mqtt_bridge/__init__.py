@@ -23,9 +23,10 @@ class MQTTBridge:
         self.is_connected = False
         self.callbacks = {}  # Topic -> callback mapping
         self.reconnect_attempts = 0
+        self.message_loop_task = None
     
     async def connect(self) -> bool:
-        """Connect to MQTT broker"""
+        """Connect to MQTT broker and start message loop"""
         try:
             logger.info(f"Connecting to MQTT broker: {config.mqtt.BROKER_HOST}:{config.mqtt.BROKER_PORT}")
             
@@ -37,7 +38,8 @@ class MQTTBridge:
                 keepalive=config.mqtt.KEEPALIVE,
             )
             
-            await self.client.connect()
+            # Connect via async context manager
+            await self.client.__aenter__()
             self.is_connected = True
             self.reconnect_attempts = 0
             logger.info("Connected to MQTT broker")
@@ -51,7 +53,10 @@ class MQTTBridge:
     async def disconnect(self):
         """Disconnect from MQTT broker"""
         if self.client:
-            await self.client.disconnect()
+            try:
+                await self.client.__aexit__(None, None, None)
+            except Exception as e:
+                logger.warning(f"Error during MQTT disconnect: {e}")
             self.is_connected = False
             logger.info("Disconnected from MQTT broker")
     

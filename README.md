@@ -104,12 +104,41 @@ Access the hub at: `http://localhost:5000`
 - [x] MQTT Bridge & Real-time Aggregation
 - [x] Ollama LLM Integration
 - [x] REST API Endpoints
+- [x] PyQt6 Desktop GUI with Real-time Monitoring
+- [x] LLM-based Activity Analysis & Reasoning
+- [x] Data Collection for Pattern Learning
 - [ ] TinyML Model Training & Deployment
 - [ ] Web Dashboard
 - [ ] Long-term Data Storage (PostgreSQL)
 - [ ] Mesh Networking Between Units
 - [ ] Mobile App Interface
 - [ ] Over-the-air Firmware Updates
+
+## 📋 Latest Updates (May 2026)
+
+### GUI Improvements ✨
+- **PyQt6 Desktop Application** - Real-time visualization of dual ESP32-S3 sensor units
+  - Readable metric displays: CSI Amplitude, Noise Floor, SNR, Frame Count, Timestamps
+  - Live CSI data trend graphs with matplotlib rendering
+  - Unit status indicators (🟢 connected / 🔴 disconnected)
+  - Dark theme with optimized contrast (#1a1a1a background, #6bcf7f accents)
+  - Configurable layout via `gui_config.json` (window size, font sizing, margins, spacing)
+  
+### LLM Integration 🧠
+- **Ollama Integration** - Running llama3.1:8b for activity analysis
+- **Real-time Activity Reasoning** - Analyzes CSI patterns and provides natural language insights
+- **Activity Classification** - Detects walking, sitting, falling, presence
+- **Confidence Scoring** - LLM provides confidence levels for activity predictions
+- **Data Collection Pipeline** - Buffering CSI metrics for pattern learning
+
+### Current Capabilities 🎯
+- ✅ Dual ESP32-S3 units connected and transmitting CSI data
+- ✅ Hub aggregating metrics from both units in real-time
+- ✅ GUI displaying readable metrics (fonts optimized, layouts properly sized)
+- ✅ LLM analyzing activity patterns
+- ✅ REST API endpoints functional: `/devices`, `/metrics`, `/reasoning`, `/timeline`
+- ✅ MQTT bridge handling unit communications
+- ✅ FastAPI hub on port 5000, Ollama on 11434
 
 ---
 

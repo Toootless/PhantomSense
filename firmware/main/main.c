@@ -5,10 +5,10 @@
 #include "freertos/event_groups.h"
 #include "esp_system.h"
 #include "esp_log.h"
-#include "cjson/cJSON.h"
 #include "app_config.h"
 #include "wifi_setup.h"
-#include "mqtt_setup.h"
+#include "http_client.h"
+#include "display_driver.h"
 #include "csi_driver.h"
 #include "signal_processor.h"
 
@@ -21,7 +21,7 @@ static TaskHandle_t signal_process_task_handle = NULL;
 // FreeRTOS event group for synchronization
 static EventGroupHandle_t status_event_group = NULL;
 #define WIFI_CONNECTED_BIT BIT0
-#define MQTT_CONNECTED_BIT BIT1
+#define HUB_CONNECTED_BIT BIT1
 
 /**
  * System status monitoring task
@@ -31,19 +31,26 @@ static void status_monitor_task(void *pvParameter) {
     
     ESP_LOGI(TAG, "=== PhantomSense Unit %d Starting ===", config->unit_id);
     ESP_LOGI(TAG, "Unit Name: %s", config->unit_name);
-    ESP_LOGI(TAG, "MQTT Topic: %s", config->mqtt.topic_prefix);
+    ESP_LOGI(TAG, "Hub URL: %s", config->http.hub_url);
     
     while (1) {
         bool wifi_ok = wifi_is_connected();
-        bool mqtt_ok = mqtt_is_connected();
+        bool hub_ok = http_is_ready();
         
-        if (wifi_ok && mqtt_ok) {
-            xEventGroupSetBits(status_event_group, WIFI_CONNECTED_BIT | MQTT_CONNECTED_BIT);
-            ESP_LOGI(TAG, "System Status: ✓ WiFi Connected | ✓ MQTT Connected");
+        if (wifi_ok && hub_ok) {
+            xEventGroupSetBits(status_event_group, WIFI_CONNECTED_BIT | HUB_CONNECTED_BIT);
+            display_set_status(DISPLAY_STATUS_CONNECTED);  // Show green
+            ESP_LOGI(TAG, "System Status: ✓ WiFi Connected | ✓ Hub Ready");
+        } else if (wifi_ok && !hub_ok) {
+            display_set_status(DISPLAY_STATUS_CONNECTING);  // Show connecting
+            xEventGroupSetBits(status_event_group, WIFI_CONNECTED_BIT);
+            xEventGroupClearBits(status_event_group, HUB_CONNECTED_BIT);
+            ESP_LOGW(TAG, "System Status: ✓ WiFi | ✗ Hub");
         } else {
-            xEventGroupClearBits(status_event_group, WIFI_CONNECTED_BIT | MQTT_CONNECTED_BIT);
-            ESP_LOGW(TAG, "System Status: %s WiFi | %s MQTT",
-                    wifi_ok ? "✓" : "✗", mqtt_ok ? "✓" : "✗");
+            display_set_status(DISPLAY_STATUS_IDLE);  // Show idle
+            xEventGroupClearBits(status_event_group, WIFI_CONNECTED_BIT | HUB_CONNECTED_BIT);
+            ESP_LOGW(TAG, "System Status: %s WiFi | %s Hub",
+                    wifi_ok ? "✓" : "✗", hub_ok ? "✓" : "✗");
         }
         
         vTaskDelay(pdMS_TO_TICKS(2000));  // Update every 2 seconds
@@ -54,13 +61,13 @@ static void status_monitor_task(void *pvParameter) {
  * CSI data acquisition task (placeholder for now)
  */
 static void csi_acquisition_task(void *pvParameter) {
-    ESP_LOGI(TAG, "CSI Acquisition task started");
+    ESP_LOGI(TAG, "CSI Acquisition task started - waiting for WiFi...");
     
     // Wait for WiFi connection
     xEventGroupWaitBits(status_event_group, WIFI_CONNECTED_BIT,
                        pdFALSE, pdTRUE, portMAX_DELAY);
     
-    ESP_LOGI(TAG, "WiFi connected, initializing CSI driver");
+    ESP_LOGI(TAG, "WiFi connected, initializing CSI driver...");
     
     // Initialize CSI driver
     csi_driver_config_t csi_config = {
@@ -76,6 +83,8 @@ static void csi_acquisition_task(void *pvParameter) {
         return;
     }
     
+    ESP_LOGI(TAG, "CSI driver initialized, starting acquisition...");
+    
     if (csi_driver_start() != ESP_OK) {
         ESP_LOGE(TAG, "Failed to start CSI acquisition");
         csi_driver_deinit();
@@ -83,7 +92,7 @@ static void csi_acquisition_task(void *pvParameter) {
         return;
     }
     
-    ESP_LOGI(TAG, "CSI acquisition started");
+    ESP_LOGI(TAG, "CSI acquisition started successfully");
     
     while (1) {
         // Get buffered CSI frames (if any)
@@ -122,7 +131,7 @@ static void signal_processing_task(void *pvParameter) {
     
     while (1) {
         // Wait for system to be fully initialized
-        xEventGroupWaitBits(status_event_group, WIFI_CONNECTED_BIT | MQTT_CONNECTED_BIT,
+        xEventGroupWaitBits(status_event_group, WIFI_CONNECTED_BIT | HUB_CONNECTED_BIT,
                            pdFALSE, pdTRUE, pdMS_TO_TICKS(100));
         
         // TODO: Process CSI frames and publish results
@@ -141,11 +150,54 @@ static void signal_processing_task(void *pvParameter) {
 }
 
 /**
+ * Hub update task - periodically send device status to hub
+ */
+static void hub_update_task(void *pvParameter) {
+    unit_config_t *config = app_config_get_current();
+    
+    ESP_LOGI(TAG, "Hub update task started");
+    
+    // Wait for HTTP client to be ready
+    xEventGroupWaitBits(status_event_group, HUB_CONNECTED_BIT,
+                       pdFALSE, pdTRUE, portMAX_DELAY);
+    
+    while (1) {
+        // Wait for WiFi to be connected
+        if (wifi_is_connected()) {
+            // Send device update every 5 seconds
+            esp_err_t err = http_publish_device_update(
+                config->unit_id,
+                config->unit_name,
+                wifi_get_rssi(),
+                wifi_get_ip_address(),
+                -50.0f,  // Placeholder CSI amplitude
+                -80.0f   // Placeholder noise floor
+            );
+            
+            if (err == ESP_OK) {
+                ESP_LOGD(TAG, "Device update sent to hub");
+            } else {
+                ESP_LOGW(TAG, "Failed to send device update: %s", esp_err_to_name(err));
+            }
+        }
+        
+        vTaskDelay(pdMS_TO_TICKS(5000));  // Send update every 5 seconds
+    }
+}
+
+/**
  * Application entry point
  */
 void app_main(void) {
     // Initialize configuration
     app_config_init();
+    
+    // Initialize display driver for status indication
+    if (display_init() != ESP_OK) {
+        ESP_LOGE(TAG, "Display driver initialization failed");
+    } else {
+        display_set_status(DISPLAY_STATUS_CONNECTING);
+    }
     
     // Create event group for status synchronization
     status_event_group = xEventGroupCreate();
@@ -159,37 +211,55 @@ void app_main(void) {
     
     // Initialize WiFi
     ESP_LOGI(TAG, "Initializing WiFi...");
-    if (wifi_setup_init(&config->wifi) != ESP_OK) {
+    if (wifi_setup_init(&config->wifi, status_event_group) != ESP_OK) {
         ESP_LOGE(TAG, "WiFi initialization failed");
         return;
     }
     
-    // Wait for WiFi connection before starting MQTT
+    // Wait for WiFi connection before starting HTTP client
     xEventGroupWaitBits(status_event_group, WIFI_CONNECTED_BIT,
                        pdFALSE, pdTRUE, portMAX_DELAY);
     
-    // Initialize MQTT
-    ESP_LOGI(TAG, "Initializing MQTT...");
-    if (mqtt_setup_init(&config->mqtt) != ESP_OK) {
-        ESP_LOGE(TAG, "MQTT initialization failed");
+    // Initialize HTTP client for hub communication
+    ESP_LOGI(TAG, "About to initialize HTTP client...");
+    if (http_client_init(&config->http) != ESP_OK) {
+        ESP_LOGE(TAG, "HTTP client initialization failed");
         return;
     }
+    ESP_LOGI(TAG, "HTTP client initialized successfully");
     
-    // Wait for MQTT connection
-    xEventGroupWaitBits(status_event_group, MQTT_CONNECTED_BIT,
-                       pdFALSE, pdTRUE, 10000 / portTICK_PERIOD_MS);
+    // HTTP client is immediately ready (no connection phase needed)
+    xEventGroupSetBits(status_event_group, HUB_CONNECTED_BIT);
+    ESP_LOGI(TAG, "Set HUB_CONNECTED_BIT");
     
+    ESP_LOGI(TAG, "Creating system monitoring task...");
     // Create task for system status monitoring
-    xTaskCreate(status_monitor_task, "status_monitor",
-               4096, NULL, tskIDLE_PRIORITY + 1, NULL);
+    if (xTaskCreate(status_monitor_task, "status_monitor",
+               4096, NULL, tskIDLE_PRIORITY + 1, NULL) != pdPASS) {
+        ESP_LOGE(TAG, "Failed to create status_monitor task");
+    }
     
+    ESP_LOGI(TAG, "Creating CSI acquisition task...");
     // Create task for CSI data acquisition
-    xTaskCreate(csi_acquisition_task, "csi_acquisition",
-               8192, NULL, tskIDLE_PRIORITY + 2, &csi_task_handle);
+    if (xTaskCreate(csi_acquisition_task, "csi_acquisition",
+               8192, NULL, tskIDLE_PRIORITY + 2, &csi_task_handle) != pdPASS) {
+        ESP_LOGE(TAG, "Failed to create csi_acquisition task");
+    }
     
+    ESP_LOGI(TAG, "Creating signal processing task...");
     // Create task for signal processing
-    xTaskCreate(signal_processing_task, "signal_processing",
-               8192, NULL, tskIDLE_PRIORITY + 2, &signal_process_task_handle);
+    if (xTaskCreate(signal_processing_task, "signal_processing",
+               8192, NULL, tskIDLE_PRIORITY + 2, &signal_process_task_handle) != pdPASS) {
+        ESP_LOGE(TAG, "Failed to create signal_processing task");
+    }
+    
+    ESP_LOGI(TAG, "Creating hub update task...");
+    // Create task for sending device updates to hub
+    if (xTaskCreate(hub_update_task, "hub_update",
+               4096, NULL, tskIDLE_PRIORITY + 1, NULL) != pdPASS) {
+        ESP_LOGE(TAG, "Failed to create hub_update task");
+    }
     
     ESP_LOGI(TAG, "All tasks created successfully");
 }
+

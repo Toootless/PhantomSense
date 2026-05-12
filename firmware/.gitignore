@@ -1,0 +1,39 @@
+# Build artifacts
+build/
+dist/
+*.o
+*.a
+*.so
+*.pyc
+__pycache__/
+
+# IDE
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+*~
+
+# Dependencies
+.pio/
+.platformio/
+venv/
+env/
+
+# Sensitive configuration (DO NOT COMMIT)
+# app_config.c contains WiFi SSID/password - use app_config.c.example instead
+main/app_config.c
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# OS
+.DS_Store
+Thumbs.db
+*.bak
+
+# ESP-IDF
+.idf_python_env_*/
+managed_components/

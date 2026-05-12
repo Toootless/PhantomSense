@@ -1,4 +1,5 @@
 idf_component_register(
-    VERSION "1.0.0"
-    DESCRIPTION "Display driver for LCD output (placeholder)"
+    SRCS "display_driver.c"
+    INCLUDE_DIRS "include"
+    REQUIRES esp_common driver freertos hal
 )

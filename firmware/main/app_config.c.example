@@ -1,0 +1,82 @@
+/**
+ * @file app_config.c.example
+ * @brief Configuration storage - EXAMPLE FILE
+ * 
+ * COPY THIS FILE TO app_config.c AND FILL IN YOUR CREDENTIALS
+ * 
+ * DO NOT COMMIT app_config.c TO GITHUB - It contains WiFi passwords
+ */
+
+#include "app_config.h"
+#include "esp_log.h"
+
+static const char *TAG = "CONFIG";
+
+// ============= Unit 1 Configuration =============
+static app_config_t unit_1_config = {
+    .unit_id = UNIT_ID_1,
+    .unit_name = "PhantomSense-Unit-1",
+    
+    // WiFi Configuration
+    .wifi_ssid = "YOUR_SSID_HERE",           // ⚠️ CHANGE THIS
+    .wifi_password = "YOUR_PASSWORD_HERE",   // ⚠️ CHANGE THIS
+    .wifi_max_retry = 5,
+    
+    // Hub Communication
+    .hub_url = "http://10.0.0.84:5000",      // ⚠️ UPDATE TO YOUR HUB IP
+    .hub_endpoint = "/update",
+    
+    // CSI Configuration
+    .csi_sampling_rate = 250,  // Hz
+    .csi_buffer_size = 2048,
+    .csi_filter_enabled = true,
+};
+
+// ============= Unit 2 Configuration =============
+static app_config_t unit_2_config = {
+    .unit_id = UNIT_ID_2,
+    .unit_name = "PhantomSense-Unit-2",
+    
+    // WiFi Configuration (same network)
+    .wifi_ssid = "YOUR_SSID_HERE",           // ⚠️ CHANGE THIS
+    .wifi_password = "YOUR_PASSWORD_HERE",   // ⚠️ CHANGE THIS
+    .wifi_max_retry = 5,
+    
+    // Hub Communication
+    .hub_url = "http://10.0.0.84:5000",      // ⚠️ UPDATE TO YOUR HUB IP
+    .hub_endpoint = "/update",
+    
+    // CSI Configuration
+    .csi_sampling_rate = 250,  // Hz
+    .csi_buffer_size = 2048,
+    .csi_filter_enabled = true,
+};
+
+// ============= Configuration Management =============
+
+app_config_t* app_config_init(void) {
+    app_config_t* config;
+    
+    // Select configuration based on CURRENT_UNIT_ID macro
+    if (CURRENT_UNIT_ID == UNIT_ID_1) {
+        config = &unit_1_config;
+        ESP_LOGI(TAG, "Loaded Unit 1 configuration");
+    } else {
+        config = &unit_2_config;
+        ESP_LOGI(TAG, "Loaded Unit 2 configuration");
+    }
+    
+    ESP_LOGI(TAG, "Unit: %s (ID=%d)", config->unit_name, config->unit_id);
+    ESP_LOGI(TAG, "WiFi SSID: %s", config->wifi_ssid);
+    ESP_LOGI(TAG, "Hub URL: %s", config->hub_url);
+    
+    return config;
+}
+
+app_config_t* get_app_config(void) {
+    if (CURRENT_UNIT_ID == UNIT_ID_1) {
+        return &unit_1_config;
+    } else {
+        return &unit_2_config;
+    }
+}

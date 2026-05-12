@@ -69,8 +69,8 @@ class OllamaConfig(BaseSettings):
     OLLAMA_HOST: str = os.getenv("OLLAMA_HOST", "http://localhost:11434")
     
     # Model configuration
-    PRIMARY_MODEL: str = "llama2:7b-chat"  # Default reasoning model
-    SECONDARY_MODEL: str = "mistral:7b"  # Alternative model
+    PRIMARY_MODEL: str = "llama3.1:8b"  # Using llama3.1 which is available
+    SECONDARY_MODEL: str = "qwen2.5-coder:1.5b-base"  # Alternative fast model
     
     # GPU allocation
     GPU_LAYERS: int = 32  # Full GPU acceleration

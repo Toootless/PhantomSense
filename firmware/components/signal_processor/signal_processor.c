@@ -2,6 +2,7 @@
 #include "esp_log.h"
 #include <string.h>
 #include <math.h>
+#include <stdbool.h>
 
 static const char *TAG = "SIGNAL_PROCESSOR";
 

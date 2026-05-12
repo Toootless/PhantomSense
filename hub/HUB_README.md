@@ -149,6 +149,85 @@ Configuration:
   MQTT Broker: 127.0.0.1:1883
   Ollama: http://localhost:11434
   API: http://0.0.0.0:5000
+Hub initialization complete
+MQTT bridge connected
+```
+
+### Start the Desktop GUI (NEW!)
+
+```bash
+# From hub directory (same venv)
+python phantomsense_desktop.py
+```
+
+The PyQt6 GUI will display:
+- **Left Panel**: Dual ESP32-S3 unit metrics (IP, status, CSI data, activity)
+- **Right Panel**: Live CSI amplitude trend graphs
+- **Bottom**: Hub connection status and statistics
+
+**GUI Features:**
+- Real-time metric updates every 500ms
+- Dark theme with high contrast (#1a1a1a background, #6bcf7f accents)
+- Readable font sizes (10-11pt minimum)
+- Live trend graphs with matplotlib
+- Unit connectivity indicators (🟢 connected / 🔴 offline)
+- LLM activity analysis with confidence scores
+
+### Access REST API
+
+Hub REST API available at `http://localhost:5000`:
+
+```bash
+# Get device list
+curl http://localhost:5000/devices
+
+# Get aggregated metrics
+curl http://localhost:5000/metrics
+
+# Get LLM reasoning
+curl http://localhost:5000/reasoning
+
+# Get activity timeline
+curl http://localhost:5000/timeline
+
+# Get pattern analysis
+curl http://localhost:5000/patterns
+```
+
+### Customize GUI Layout
+
+Edit `gui_config.json` to adjust layout without code changes:
+
+```json
+{
+  "window": {
+    "title": "PhantomSense Hub - Dual Unit Monitor",
+    "width": 1600,
+    "height": 900,
+    "x": 50,
+    "y": 50
+  },
+  "layout": {
+    "left_panel_min_width": 180,
+    "left_panel_max_width": 250,
+    "unit_min_height": 300,
+    "margins": 12,
+    "spacing": 12
+  },
+  "colors": {
+    "background": "#1a1a1a",
+    "panel": "#2b2b2b",
+    "text_accent": "#6bcf7f",
+    "text_warning": "#ffd93d",
+    "text_error": "#ff6b6b"
+  }
+}
+```
+
+Then restart the GUI for changes to take effect.
+
+See **[GUI_CONFIG_README.md](GUI_CONFIG_README.md)** for detailed configuration options.
+  API: http://0.0.0.0:5000
 ============================================================
 All components initialized successfully
 Hub is ready to receive sensor data

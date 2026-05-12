@@ -20,16 +20,13 @@ typedef struct {
     const char *ssid;
     const char *password;
     uint32_t max_retry;
-} wifi_config_t;
+} phantom_wifi_config_t;
 
-// ==================== MQTT Configuration ====================
+// ==================== HTTP Configuration ====================
 typedef struct {
-    const char *broker_uri;      // e.g., "mqtt://192.168.1.100:1883"
-    const char *username;
-    const char *password;
-    const char *topic_prefix;    // e.g., "/phantomsense/unit1"
-    uint32_t keepalive;
-} mqtt_config_t;
+    const char *hub_url;         // e.g., "http://192.168.1.100:5000"
+    const char *update_endpoint; // e.g., "/update"
+} http_config_t;
 
 // ==================== CSI Configuration ====================
 typedef struct {
@@ -42,8 +39,8 @@ typedef struct {
 typedef struct {
     unit_id_t unit_id;
     const char *unit_name;
-    wifi_config_t wifi;
-    mqtt_config_t mqtt;
+    phantom_wifi_config_t wifi;
+    http_config_t http;
     csi_config_t csi;
     uint32_t display_refresh_rate_ms;
 } unit_config_t;

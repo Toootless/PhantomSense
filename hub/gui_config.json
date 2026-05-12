@@ -1,0 +1,41 @@
+{
+  "window": {
+    "title": "PhantomSense - Real-time Data Monitor with LLM Analysis",
+    "width": 1600,
+    "height": 900,
+    "min_width": 1000,
+    "min_height": 700,
+    "x": 50,
+    "y": 50
+  },
+  "layout": {
+    "left_panel_min_width": 180,
+    "left_panel_max_width": 250,
+    "graph_min_height": 280,
+    "unit_min_height": 300,
+    "margins": 12,
+    "spacing": 12
+  },
+  "colors": {
+    "background": "#1a1a1a",
+    "panel": "#2b2b2b",
+    "border": "#3a3a3a",
+    "text_primary": "#ffffff",
+    "text_accent": "#6bcf7f",
+    "text_secondary": "#95e1d3",
+    "text_value": "#a8e6cf",
+    "text_warning": "#ffd93d",
+    "text_error": "#ff6b6b"
+  },
+  "graph": {
+    "width": 400,
+    "height": 250,
+    "update_interval_ms": 500,
+    "line_width": 2,
+    "grid_alpha": 0.2
+  },
+  "data": {
+    "history_max_samples": 50,
+    "hub_poll_interval_ms": 500
+  }
+}
