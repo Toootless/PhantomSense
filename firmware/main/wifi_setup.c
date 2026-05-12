@@ -61,12 +61,12 @@ esp_err_t wifi_setup_init(const phantom_wifi_config_t *config, void *event_group
     ESP_ERROR_CHECK(esp_event_handler_instance_register(WIFI_EVENT,
                                                         ESP_EVENT_ANY_ID,
                                                         &wifi_event_handler,
-                                                        &config->max_retry,
+                                                        (void*)&config->max_retry,
                                                         &instance_any_id));
     ESP_ERROR_CHECK(esp_event_handler_instance_register(IP_EVENT,
                                                         IP_EVENT_STA_GOT_IP,
                                                         &wifi_event_handler,
-                                                        &config->max_retry,
+                                                        (void*)&config->max_retry,
                                                         &instance_got_ip));
 
     wifi_config_t wifi_config = {

@@ -239,12 +239,9 @@ void app_main(void) {
         ESP_LOGE(TAG, "Failed to create status_monitor task");
     }
     
-    ESP_LOGI(TAG, "Creating CSI acquisition task...");
-    // Create task for CSI data acquisition
-    if (xTaskCreate(csi_acquisition_task, "csi_acquisition",
-               8192, NULL, tskIDLE_PRIORITY + 2, &csi_task_handle) != pdPASS) {
-        ESP_LOGE(TAG, "Failed to create csi_acquisition task");
-    }
+    ESP_LOGI(TAG, "Skipping CSI acquisition task (ESP-IDF v6.0.1 compatibility pending)");
+    // TODO: Fix CSI driver for ESP-IDF v6.0.1
+    // esp_wifi_set_csi_config() needs investigation
     
     ESP_LOGI(TAG, "Creating signal processing task...");
     // Create task for signal processing

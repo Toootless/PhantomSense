@@ -14,7 +14,7 @@ static unit_config_t unit_1_config = {
         .max_retry = 5,
     },
     .http = {
-        .hub_url = "http://10.0.0.84:5000",
+        .hub_url = "http://172.31.175.241:5000",
         .update_endpoint = "/update",
     },
     .csi = {
@@ -35,7 +35,7 @@ static unit_config_t unit_2_config = {
         .max_retry = 5,
     },
     .http = {
-        .hub_url = "http://10.0.0.84:5000",
+        .hub_url = "http://172.31.175.241:5000",
         .update_endpoint = "/update",
     },
     .csi = {
