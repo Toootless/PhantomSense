@@ -1,56 +1,46 @@
-# PhantomSense Hub - Python Dependencies
-# Optimized for Franklin: Ryzen 9 8945HS, 96GB RAM, RTX 3060 + RX 7900 XTX
+# PhantomSense Hub - Python Dependencies (Windows-Friendly)
+# NOTES FOR WINDOWS USERS:
+# 1. Use quick_install.bat for pre-built wheels only (recommended)
+# 2. OR install C build tools (Visual Studio Build Tools, MSVC compiler)
+# 3. For numpy only from wheels: pip install --only-binary=:all: numpy
+#
+# Pre-built wheels available for: numpy, scipy, matplotlib, PyQt6, etc.
+# Use: pip install --prefer-binary -r requirements.txt
+#
+# If you get "Unknown compiler" error: Install Microsoft Visual C++ Build Tools
+
+# Numeric computing (pre-built wheels available)
+# Use: pip install --only-binary=:all: numpy
+numpy>=1.26.0,<2.0
 
 # Core async framework
-asyncio-contextmanager==1.0.0
-aiohttp==3.9.1
 fastapi==0.104.1
 uvicorn[standard]==0.24.0
 pydantic==2.5.0
 pydantic-settings==2.1.0
 
 # MQTT broker and client
-paho-mqtt==1.7.1
-asyncio-mqtt==0.16.1
+paho-mqtt==2.1.0
+aiomqtt==2.5.1
 
-# LLM & AI
+# LLM Integration
 ollama==0.1.0
-langchain==0.1.0
-langchain-community==0.0.10
 
-# GPU acceleration (multi-GPU support)
-torch==2.1.0
-torchvision==0.16.0
-# AMD GPU support (ROCm)
-# Note: Install separately: pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm5.7
-# NVIDIA GPU support is automatic with CUDA 12.1
+# GUI & Visualization (pre-built wheels available)
+PyQt6>=6.6.0
+matplotlib>=3.8.0
 
-# Data handling & processing
-pandas==2.1.3
-numpy==1.26.2
-scipy==1.11.4
-scikit-learn==1.3.2
-
-# Time series & signal processing
-tslearn==0.6.3
-librosa==0.10.0
-
-# Database
-sqlalchemy==2.0.23
-alembic==1.13.0
-sqlite3  # Built-in
-
-# Web scraping & APIs
+# Web APIs
 requests==2.31.0
-httpx==0.25.1
+httpx>=0.25.2
 
 # Data logging & persistence
 python-dotenv==1.0.0
 pyyaml==6.0.1
 
-# Monitoring & metrics
+# Monitoring & metrics (pre-built wheels available)
 prometheus-client==0.18.0
-psutil==5.9.6
+psutil>=5.9.6
 
 # Logging & debugging
 python-json-logger==2.0.7
