@@ -1,0 +1,10 @@
+# GUI-only dependencies for Windows PowerShell
+# No numpy/matplotlib (compiler issues on Windows)
+# Hub backend runs separately in WSL
+
+PyQt6==6.6.1
+requests==2.31.0
+httpx>=0.25.2
+python-dotenv==1.0.0
+pyyaml==6.0.1
+colorlog==6.8.0

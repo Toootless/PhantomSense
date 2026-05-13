@@ -18,9 +18,9 @@ def check_and_install_package(package_name, import_name=None):
     if spec is None:
         print(f"Installing {package_name}...")
         subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", package_name])
-        print(f"✓ {package_name} installed")
+        print(f"[OK] {package_name} installed")
     else:
-        print(f"✓ {package_name} already installed")
+        print(f"[OK] {package_name} already installed")
 
 
 def main():
@@ -30,8 +30,9 @@ def main():
     
     # Check required packages
     packages = [
-        ("PyQt6", "PyQt6"),
+        ("PySide6", "PySide6"),
         ("requests", "requests"),
+        ("matplotlib", "matplotlib"),
     ]
     
     print("\nChecking dependencies...")

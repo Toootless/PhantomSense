@@ -48,14 +48,6 @@ static esp_err_t http_event_handler(esp_http_client_event_t *evt) {
         case HTTP_EVENT_REDIRECT:
             ESP_LOGD(TAG, "HTTP_EVENT_REDIRECT");
             break;
-            
-        case HTTP_EVENT_ON_HEADERS_COMPLETE:
-            ESP_LOGD(TAG, "HTTP_EVENT_ON_HEADERS_COMPLETE");
-            break;
-            
-        case HTTP_EVENT_ON_STATUS_CODE:
-            ESP_LOGD(TAG, "HTTP_EVENT_ON_STATUS_CODE");
-            break;
     }
     return ESP_OK;
 }
@@ -152,9 +144,11 @@ esp_err_t http_publish_json(const char *json_data) {
     if (err == ESP_OK) {
         int status_code = esp_http_client_get_status_code(http_client);
         ESP_LOGI(TAG, "HTTP POST successful (status=%d, len=%zu)", status_code, strlen(json_data));
+        esp_http_client_close(http_client);
         return ESP_OK;
     } else {
         ESP_LOGE(TAG, "HTTP POST failed: %s", esp_err_to_name(err));
+        esp_http_client_close(http_client);
         return err;
     }
 }

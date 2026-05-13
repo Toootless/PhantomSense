@@ -17,26 +17,28 @@ if errorlevel 1 (
 )
 
 for /f "tokens=2" %%i in ('python --version 2^>^&1') do set PYTHON_VERSION=%%i
-echo ✓ Python version: %PYTHON_VERSION%
+echo [OK] Python version: %PYTHON_VERSION%
 
-REM Create virtual environment
-if not exist "venv" (
-    echo Creating virtual environment...
-    python -m venv venv
+set "CENTRAL_VENV=C:\Users\johnj\OneDrive\Documents\VS_projects\Prohram_IDE_files\PhantomSense_venv"
+
+REM Create centralized virtual environment
+if not exist "%CENTRAL_VENV%" (
+    echo Creating centralized virtual environment...
+    python -m venv "%CENTRAL_VENV%"
 )
 
 REM Activate virtual environment
-call venv\Scripts\activate.bat
+call "%CENTRAL_VENV%\Scripts\activate.bat"
 
 REM Install dependencies
 echo Installing dependencies...
-pip install -r requirements.txt -q
+pip install --no-cache-dir -r requirements.txt -q
 
 REM Setup environment
 if not exist ".env" (
     echo Creating .env from template...
     copy .env.example .env
-    echo ⚠ Please edit .env with your configuration
+    echo [INFO] Please edit .env with your configuration
 )
 
 REM Create data directories
@@ -56,7 +58,7 @@ echo    - Remote: Update MQTT_BROKER_HOST in .env
 echo 3. Ensure Ollama is running:
 echo    - Start Ollama application
 echo 4. Start the hub:
-echo    - venv\Scripts\activate.bat
+echo    - call "%CENTRAL_VENV%\Scripts\activate.bat"
 echo    - python hub.py
 echo.
 echo API will be available at: http://localhost:5000

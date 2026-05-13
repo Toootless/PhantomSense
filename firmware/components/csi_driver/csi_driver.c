@@ -41,14 +41,17 @@ static void wifi_csi_event_handler(void *ctx, wifi_csi_info_t *data) {
     frame->timestamp_ms = esp_timer_get_time() / 1000;
     frame->rssi = data->rx_ctrl.rssi;
     frame->noise_floor = data->rx_ctrl.noise_floor;
-    frame->len = data->len;
+
+    // data->buf contains interleaved (I, Q) int8 pairs; each pair = one subcarrier
+    uint16_t num_subcarriers = (data->len > 0) ? (data->len / 2) : 0;
+    frame->len = num_subcarriers;
 
     // Copy MAC address
     memcpy(frame->mac, data->mac, 6);
 
-    // Allocate and copy CSI data
-    frame->amplitude = malloc(data->len);
-    frame->phase = malloc(data->len);
+    // Allocate arrays sized for subcarrier count
+    frame->amplitude = malloc(num_subcarriers * sizeof(int8_t));
+    frame->phase = malloc(num_subcarriers * sizeof(int8_t));
 
     if (!frame->amplitude || !frame->phase) {
         free(frame->amplitude);
@@ -58,10 +61,14 @@ static void wifi_csi_event_handler(void *ctx, wifi_csi_info_t *data) {
         return;
     }
 
-    // Extract amplitude and phase from CSI (simplified - actual extraction is complex)
-    for (int i = 0; i < data->len; i++) {
-        frame->amplitude[i] = (data->buf[i * 2]) & 0xFF;
-        frame->phase[i] = (data->buf[i * 2 + 1]) & 0xFF;
+    // Extract amplitude (|I| + |Q| approximation) and phase from I/Q pairs
+    for (int i = 0; i < num_subcarriers; i++) {
+        int8_t I = (int8_t)data->buf[i * 2];
+        int8_t Q = (int8_t)data->buf[i * 2 + 1];
+        // Amplitude approximation: |I| + |Q| (avoids sqrt, fits int8_t range)
+        int16_t amp = (I < 0 ? -I : I) + (Q < 0 ? -Q : Q);
+        frame->amplitude[i] = (int8_t)(amp > 127 ? 127 : amp);
+        frame->phase[i] = Q;  // Store Q as phase proxy
     }
 
     // Send to queue

@@ -39,7 +39,10 @@ static const char *TAG = "DISPLAY";
 #define LCD_PIN_RST        GPIO_NUM_13     // Display Reset
 #define LCD_PIN_BACKLIGHT  GPIO_NUM_15     // Backlight control (MUST be HIGH to see display)
 
-#define LCD_SPI_FREQ_HZ    (80 * 1000 * 1000)  // 80 MHz
+#include "esp_heap_caps.h"
+
+// Set stable SPI frequency for ST7789 display reliability
+#define LCD_SPI_FREQ_HZ    (26 * 1000 * 1000)  // 26 MHz
 #define LCD_WIDTH          172
 #define LCD_HEIGHT         320
 
@@ -91,7 +94,7 @@ static void lcd_fill_black(void);
 // ============= LCD Functions =============
 // Initialize SPI for LCD
 static esp_err_t lcd_spi_init(void) {
-    ESP_LOGI(TAG, "Initializing LCD SPI interface");
+    ESP_LOGI(TAG, "Initializing LCD SPI interface at 26MHz");
     
     spi_bus_config_t buscfg = {
         .mosi_io_num = LCD_PIN_MOSI,
@@ -122,7 +125,8 @@ static void lcd_send_cmd(uint8_t cmd) {
     
     spi_transaction_t t = {
         .length = 8,
-        .tx_buffer = &cmd,
+        .flags = SPI_TRANS_USE_TXDATA,
+        .tx_data = {cmd},
     };
     
     ESP_ERROR_CHECK(spi_device_transmit(lcd_spi, &t));
@@ -134,8 +138,14 @@ static void lcd_send_data(const uint8_t *data, uint32_t len) {
     
     spi_transaction_t t = {
         .length = len * 8,
-        .tx_buffer = data,
     };
+    
+    if (len <= 4) {
+        t.flags = SPI_TRANS_USE_TXDATA;
+        memcpy(t.tx_data, data, len);
+    } else {
+        t.tx_buffer = data;
+    }
     
     ESP_ERROR_CHECK(spi_device_transmit(lcd_spi, &t));
 }
@@ -201,16 +211,17 @@ static void lcd_fill_color(uint16_t color) {
     // Set write window to full screen
     lcd_set_window(0, 0, width - 1, height - 1);
     
-    // Allocate buffer for one row
-    uint16_t *row_buffer = malloc(width * sizeof(uint16_t));
+    // Allocate DMA-capable buffer for one row
+    uint16_t *row_buffer = heap_caps_malloc(width * sizeof(uint16_t), MALLOC_CAP_DMA);
     if (!row_buffer) {
-        ESP_LOGE(TAG, "Failed to allocate row buffer");
+        ESP_LOGE(TAG, "Failed to allocate DMA row buffer");
         return;
     }
     
-    // Fill buffer with color
+    // Fill buffer with byte-swapped color (ST7789 expects big-endian over SPI)
+    uint16_t swapped_color = __builtin_bswap16(color);
     for (uint16_t i = 0; i < width; i++) {
-        row_buffer[i] = color;
+        row_buffer[i] = swapped_color;
     }
     
     // Send each row

@@ -90,238 +90,210 @@ class UnitDataWidget(QWidget):
         self.setup_ui()
     
     def setup_ui(self):
-        cfg_layout = GUI_CONFIG.get('layout', {})
-        left_min = cfg_layout.get('left_panel_min_width', 180)
-        left_max = cfg_layout.get('left_panel_max_width', 250)
-        spacing = cfg_layout.get('spacing', 10)
-        margins = cfg_layout.get('margins', 8)
-        
         main_layout = QHBoxLayout()
-        main_layout.setContentsMargins(margins, margins, margins, margins)
-        main_layout.setSpacing(spacing)
-        
-        # Left side: Data panel
-        left_layout = QVBoxLayout()
-        left_layout.setContentsMargins(0, 0, 0, 0)
-        left_layout.setSpacing(10)
-        
-        # Helper function to create consistent label fonts
-        def create_label_font(size=10, bold=False):
-            font = QFont()
-            font.setPointSize(size)
+        main_layout.setContentsMargins(8, 8, 8, 8)
+        main_layout.setSpacing(12)
+
+        # ── helpers ────────────────────────────────────────────────────────
+        def lbl(text, size=11, bold=False, color="#ffffff"):
+            w = QLabel(text)
+            f = QFont()
+            f.setPointSize(size)
             if bold:
-                font.setBold(True)
-            return font
-        
-        # Title
+                f.setBold(True)
+            w.setFont(f)
+            w.setStyleSheet(f"color: {color};")
+            return w
+
+        def key_lbl(text):
+            """Dim key label on the left."""
+            return lbl(text, size=10, color="#7a8fa6")
+
+        def val_lbl(text="—", color="#e8eaf0"):
+            """Bright value label on the right, slightly larger."""
+            w = lbl(text, size=11, bold=True, color=color)
+            w.setStyleSheet(
+                f"color: {color}; background-color: #1e2535; "
+                f"border-radius: 4px; padding: 3px 8px;"
+            )
+            return w
+
+        def section_title(text, color="#6bcf7f"):
+            w = lbl(text, size=10, bold=True, color=color)
+            w.setStyleSheet(
+                f"color: {color}; background-color: #1a2030; "
+                f"border-radius: 3px; padding: 4px 8px; letter-spacing: 1px;"
+            )
+            return w
+
+        def add_row(grid, row, key, val_widget):
+            k = key_lbl(key)
+            k.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            grid.addWidget(k, row, 0)
+            grid.addWidget(val_widget, row, 1)
+
+        # ── Left panel ─────────────────────────────────────────────────────
+        left = QVBoxLayout()
+        left.setContentsMargins(0, 0, 0, 0)
+        left.setSpacing(8)
+
+        # Unit title bar
         icon = "📶" if self.unit_id == "3" else "📡"
-        title_label = QLabel(f"{icon} {self.unit_name}")
-        title_label.setFont(create_label_font(12, bold=True))
-        title_label.setStyleSheet("color: #6bcf7f; padding: 4px;")
-        left_layout.addWidget(title_label)
-        
-        # Status frame
-        status_frame = QFrame()
-        status_frame.setStyleSheet("QFrame { background-color: #2b2b2b; border-radius: 4px; padding: 10px; }")
-        status_layout = QGridLayout()
-        status_layout.setSpacing(10)
-        status_layout.setContentsMargins(10, 10, 10, 10)
-        status_layout.setRowMinimumHeight(0, 25)
-        status_layout.setRowMinimumHeight(1, 25)
-        status_layout.setRowMinimumHeight(2, 25)
-        
-        status_label_title = QLabel("Status:")
-        status_label_title.setFont(create_label_font(10))
-        status_label_title.setStyleSheet("color: #95e1d3; padding: 2px;")
-        status_label_title.setMinimumWidth(50)
-        self.status_label = QLabel("🔴 Disconnected")
-        self.status_label.setFont(create_label_font(10, bold=True))
-        self.status_label.setStyleSheet("color: #ff6b6b; padding: 2px;")
-        self.status_label.setMinimumWidth(120)
-        status_layout.addWidget(status_label_title, 0, 0)
-        status_layout.addWidget(self.status_label, 0, 1)
-        
-        ip_label_title = QLabel("IP:")
-        ip_label_title.setFont(create_label_font(10))
-        ip_label_title.setStyleSheet("color: #95e1d3; padding: 2px;")
-        ip_label_title.setMinimumWidth(50)
-        self.ip_label = QLabel("N/A")
-        self.ip_label.setFont(create_label_font(10))
-        self.ip_label.setStyleSheet("color: #a8e6cf; padding: 2px;")
-        self.ip_label.setMinimumWidth(120)
-        status_layout.addWidget(ip_label_title, 1, 0)
-        status_layout.addWidget(self.ip_label, 1, 1)
-        
-        rssi_label_title = QLabel("WiFi:")
-        rssi_label_title.setFont(create_label_font(10))
-        rssi_label_title.setStyleSheet("color: #95e1d3; padding: 2px;")
-        rssi_label_title.setMinimumWidth(50)
-        self.rssi_label = QLabel("N/A")
-        self.rssi_label.setFont(create_label_font(10))
-        self.rssi_label.setStyleSheet("color: #a8e6cf; padding: 2px;")
-        self.rssi_label.setMinimumWidth(120)
-        status_layout.addWidget(rssi_label_title, 2, 0)
-        status_layout.addWidget(self.rssi_label, 2, 1)
-        
-        status_frame.setLayout(status_layout)
-        status_frame.setMinimumHeight(100)
-        left_layout.addWidget(status_frame)
-        
-        # Data metrics frame
-        data_frame = QFrame()
-        data_frame.setStyleSheet("QFrame { background-color: #2b2b2b; border-radius: 4px; padding: 10px; }")
-        data_frame.setMinimumHeight(160)
-        data_layout = QGridLayout()
-        data_layout.setSpacing(10)
-        data_layout.setContentsMargins(10, 10, 10, 10)
-        data_layout.setRowMinimumHeight(0, 22)
-        data_layout.setRowMinimumHeight(1, 22)
-        data_layout.setRowMinimumHeight(2, 22)
-        data_layout.setRowMinimumHeight(3, 22)
-        data_layout.setRowMinimumHeight(4, 22)
-        
-        csi_label_text = "Signal:" if self.unit_id == "3" else "CSI Amp:"
-        csi_label_title = QLabel(csi_label_text)
-        csi_label_title.setFont(create_label_font(10))
-        csi_label_title.setStyleSheet("color: #95e1d3; padding: 2px;")
-        csi_label_title.setMinimumWidth(70)
-        self.csi_mean_label = QLabel("0.0")
-        self.csi_mean_label.setFont(create_label_font(10))
-        self.csi_mean_label.setStyleSheet("color: #ffd93d; padding: 2px;")
-        self.csi_mean_label.setMinimumWidth(90)
-        data_layout.addWidget(csi_label_title, 0, 0)
-        data_layout.addWidget(self.csi_mean_label, 0, 1)
-        
-        noise_label_text = "Baseline:" if self.unit_id == "3" else "Noise:"
-        noise_label_title = QLabel(noise_label_text)
-        noise_label_title.setFont(create_label_font(10))
-        noise_label_title.setStyleSheet("color: #95e1d3; padding: 2px;")
-        noise_label_title.setMinimumWidth(70)
-        self.noise_floor_label = QLabel("0")
-        self.noise_floor_label.setFont(create_label_font(10))
-        self.noise_floor_label.setStyleSheet("color: #ffd93d; padding: 2px;")
-        self.noise_floor_label.setMinimumWidth(90)
-        data_layout.addWidget(noise_label_title, 1, 0)
-        data_layout.addWidget(self.noise_floor_label, 1, 1)
-        
-        snr_label_text = "Activity:" if self.unit_id == "3" else "SNR:"
-        snr_label_title = QLabel(snr_label_text)
-        snr_label_title.setFont(create_label_font(10))
-        snr_label_title.setStyleSheet("color: #95e1d3; padding: 2px;")
-        snr_label_title.setMinimumWidth(70)
-        self.snr_label = QLabel("0.0")
-        self.snr_label.setFont(create_label_font(10))
-        self.snr_label.setStyleSheet("color: #ffd93d; padding: 2px;")
-        self.snr_label.setMinimumWidth(90)
-        data_layout.addWidget(snr_label_title, 2, 0)
-        data_layout.addWidget(self.snr_label, 2, 1)
-        
-        frame_label_title = QLabel("Frames:")
-        frame_label_title.setFont(create_label_font(10))
-        frame_label_title.setStyleSheet("color: #95e1d3; padding: 2px;")
-        frame_label_title.setMinimumWidth(70)
-        self.frame_count_label = QLabel("0")
-        self.frame_count_label.setFont(create_label_font(10))
-        self.frame_count_label.setStyleSheet("color: #95e1d3; padding: 2px;")
-        self.frame_count_label.setMinimumWidth(90)
-        data_layout.addWidget(frame_label_title, 3, 0)
-        data_layout.addWidget(self.frame_count_label, 3, 1)
-        
-        update_label_title = QLabel("Updated:")
-        update_label_title.setFont(create_label_font(10))
-        update_label_title.setStyleSheet("color: #95e1d3; padding: 2px;")
-        update_label_title.setMinimumWidth(70)
-        self.last_update_label = QLabel("--:--:--")
-        self.last_update_label.setFont(create_label_font(10))
-        self.last_update_label.setStyleSheet("color: #95e1d3; padding: 2px;")
-        self.last_update_label.setMinimumWidth(90)
-        data_layout.addWidget(update_label_title, 4, 0)
-        data_layout.addWidget(self.last_update_label, 4, 1)
-        
-        data_frame.setLayout(data_layout)
-        left_layout.addWidget(data_frame)
-        
-        # LLM Analysis frame
+        title = lbl(f"{icon}  {self.unit_name}", size=12, bold=True, color="#6bcf7f")
+        title.setWordWrap(True)
+        title.setStyleSheet(
+            "color: #6bcf7f; background-color: #1a2030; "
+            "border-radius: 5px; padding: 6px 10px;"
+        )
+        left.addWidget(title)
+
+        # ── Connection card ─────────────────────────────────────────────────
+        conn_frame = QFrame()
+        conn_frame.setStyleSheet(
+            "QFrame { background-color: #1e2535; border: 1px solid #2d3a50; "
+            "border-radius: 6px; }"
+        )
+        conn_layout = QVBoxLayout(conn_frame)
+        conn_layout.setContentsMargins(10, 8, 10, 8)
+        conn_layout.setSpacing(4)
+        conn_layout.addWidget(section_title("CONNECTION"))
+
+        conn_grid = QGridLayout()
+        conn_grid.setContentsMargins(0, 4, 0, 0)
+        conn_grid.setSpacing(6)
+        conn_grid.setColumnStretch(1, 1)
+        conn_grid.setColumnMinimumWidth(0, 65)
+
+        self.status_label = val_lbl("🔴  Disconnected", color="#ff6b6b")
+        self.ip_label     = val_lbl("N/A",              color="#a8e6cf")
+        self.rssi_label   = val_lbl("N/A",              color="#a8e6cf")
+        add_row(conn_grid, 0, "Status", self.status_label)
+        add_row(conn_grid, 1, "IP",     self.ip_label)
+        add_row(conn_grid, 2, "RSSI",   self.rssi_label)
+        conn_layout.addLayout(conn_grid)
+        left.addWidget(conn_frame)
+
+        # ── Signal metrics card ─────────────────────────────────────────────
+        sig_frame = QFrame()
+        sig_frame.setStyleSheet(
+            "QFrame { background-color: #1e2535; border: 1px solid #2d3a50; "
+            "border-radius: 6px; }"
+        )
+        sig_layout = QVBoxLayout(sig_frame)
+        sig_layout.setContentsMargins(10, 8, 10, 8)
+        sig_layout.setSpacing(4)
+        csi_title_text = "WIFI SIGNAL" if self.unit_id == "3" else "CSI METRICS"
+        sig_layout.addWidget(section_title(csi_title_text, color="#ffd93d"))
+
+        sig_grid = QGridLayout()
+        sig_grid.setContentsMargins(0, 4, 0, 0)
+        sig_grid.setSpacing(6)
+        sig_grid.setColumnStretch(1, 1)
+        sig_grid.setColumnMinimumWidth(0, 65)
+
+        csi_key   = "Quality"  if self.unit_id == "3" else "Amplitude"
+        noise_key = "Activity" if self.unit_id == "3" else "Noise"
+        snr_key   = "Score"    if self.unit_id == "3" else "SNR"
+
+        self.csi_mean_label    = val_lbl("—", color="#ffd93d")
+        self.noise_floor_label = val_lbl("—", color="#ffd93d")
+        self.snr_label         = val_lbl("—", color="#ffd93d")
+        self.frame_count_label = val_lbl("0", color="#95e1d3")
+        self.last_update_label = val_lbl("--:--:--", color="#95e1d3")
+
+        add_row(sig_grid, 0, csi_key,    self.csi_mean_label)
+        add_row(sig_grid, 1, noise_key,  self.noise_floor_label)
+        add_row(sig_grid, 2, snr_key,    self.snr_label)
+        add_row(sig_grid, 3, "Frames",   self.frame_count_label)
+        add_row(sig_grid, 4, "Updated",  self.last_update_label)
+        sig_layout.addLayout(sig_grid)
+        left.addWidget(sig_frame)
+
+        # ── LLM Analysis card ───────────────────────────────────────────────
         llm_frame = QFrame()
-        llm_frame.setStyleSheet("QFrame { background-color: #2b2b2b; border-radius: 4px; padding: 10px; }")
-        llm_layout = QVBoxLayout()
+        llm_frame.setStyleSheet(
+            "QFrame { background-color: #1e2535; border: 1px solid #2d3a50; "
+            "border-radius: 6px; }"
+        )
+        llm_layout = QVBoxLayout(llm_frame)
+        llm_layout.setContentsMargins(10, 8, 10, 8)
         llm_layout.setSpacing(5)
-        llm_layout.setContentsMargins(10, 10, 10, 10)
+        llm_layout.addWidget(section_title("🤖 LLM ANALYSIS", color="#b39ddb"))
 
-        llm_title = QLabel("🤖 LLM Analysis")
-        llm_title.setFont(create_label_font(11, bold=True))
-        llm_title.setStyleSheet("color: #6bcf7f; padding: 4px;")
-        llm_layout.addWidget(llm_title)
-
-        self.llm_status_label = QLabel("⏳ Waiting for data...")
-        self.llm_status_label.setFont(create_label_font(10, bold=True))
-        self.llm_status_label.setStyleSheet("color: #95e1d3; padding: 2px;")
+        self.llm_status_label = val_lbl("⏳  Waiting for data...", color="#95e1d3")
+        self.llm_status_label.setStyleSheet(
+            "color: #95e1d3; background-color: #151e2e; "
+            "border-radius: 4px; padding: 4px 8px; font-weight: bold;"
+        )
         llm_layout.addWidget(self.llm_status_label)
 
-        self.llm_time_label = QLabel("")
-        self.llm_time_label.setFont(create_label_font(9))
-        self.llm_time_label.setStyleSheet("color: #666666; padding: 2px;")
+        self.llm_time_label = lbl("", size=9, color="#4a5a70")
+        self.llm_time_label.setStyleSheet("color: #4a5a70; padding: 0px 2px;")
         llm_layout.addWidget(self.llm_time_label)
 
+        # Activity name — first sentence only, word-wrapped
         self.activity_label = QLabel("—")
-        self.activity_label.setFont(create_label_font(10, bold=True))
-        self.activity_label.setStyleSheet("color: #a8e6cf; padding: 2px;")
+        af = QFont(); af.setPointSize(10); af.setBold(True)
+        self.activity_label.setFont(af)
+        self.activity_label.setStyleSheet(
+            "color: #a8e6cf; background-color: #151e2e; "
+            "border-radius: 4px; padding: 5px 8px;"
+        )
         self.activity_label.setWordWrap(True)
         llm_layout.addWidget(self.activity_label)
 
-        self.confidence_label = QLabel("Confidence: N/A")
-        self.confidence_label.setFont(create_label_font(10))
-        self.confidence_label.setStyleSheet("color: #ffd93d; padding: 2px;")
+        self.confidence_label = lbl("Confidence: N/A", size=10, color="#888888")
+        self.confidence_label.setStyleSheet(
+            "color: #888888; padding: 2px 4px;"
+        )
         llm_layout.addWidget(self.confidence_label)
 
+        # Reasoning snippet
         self.llm_reasoning_label = QLabel("")
-        self.llm_reasoning_label.setFont(create_label_font(8))
-        self.llm_reasoning_label.setStyleSheet("color: #777777; padding: 2px;")
+        rf = QFont(); rf.setPointSize(9)
+        self.llm_reasoning_label.setFont(rf)
+        self.llm_reasoning_label.setStyleSheet(
+            "color: #5a6a80; padding: 4px 6px; "
+            "background-color: #151e2e; border-radius: 3px;"
+        )
         self.llm_reasoning_label.setWordWrap(True)
-        self.llm_reasoning_label.setMaximumHeight(54)
+        self.llm_reasoning_label.setMaximumHeight(66)
         llm_layout.addWidget(self.llm_reasoning_label)
 
-        llm_frame.setLayout(llm_layout)
-        llm_frame.setMinimumHeight(160)
-        left_layout.addWidget(llm_frame)
-        
-        left_layout.addStretch()
-        
-        # Right side: Graph
-        right_layout = QVBoxLayout()
-        right_layout.setContentsMargins(0, 0, 0, 0)
-        right_layout.setSpacing(8)
-        
-        if self.unit_id == "3":
-            graph_title_text = "📶 WiFi Signal Quality Trend"
-        else:
-            graph_title_text = "📊 CSI Data Trend"
-        graph_title = QLabel(graph_title_text)
-        graph_title.setFont(create_label_font(11, bold=True))
-        graph_title.setStyleSheet("color: #6bcf7f; padding: 4px;")
-        right_layout.addWidget(graph_title)
-        
-        # Graph display label
-        cfg_graph = GUI_CONFIG.get('graph', {})
-        graph_width = cfg_graph.get('width', 400)
-        graph_height = cfg_graph.get('height', 250)
-        
+        left.addWidget(llm_frame)
+        left.addStretch()
+
+        # ── Right: graph ────────────────────────────────────────────────────
+        right = QVBoxLayout()
+        right.setContentsMargins(0, 0, 0, 0)
+        right.setSpacing(6)
+
+        graph_title_text = "📶  WiFi Signal Quality Trend" if self.unit_id == "3" else "📊  CSI Data Trend"
+        gt = lbl(graph_title_text, size=11, bold=True, color="#6bcf7f")
+        gt.setStyleSheet(
+            "color: #6bcf7f; background-color: #1a2030; "
+            "border-radius: 4px; padding: 5px 10px;"
+        )
+        right.addWidget(gt)
+
         self.graph_label = QLabel()
-        self.graph_label.setStyleSheet("background-color: #2b2b2b; border: 1px solid #3a3a3a;")
-        self.graph_label.setMinimumSize(graph_width, graph_height)
+        self.graph_label.setStyleSheet(
+            "background-color: #141922; border: 1px solid #2d3a50; border-radius: 4px;"
+        )
+        self.graph_label.setMinimumSize(300, 160)
         self.graph_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        right_layout.addWidget(self.graph_label, 1)
-        
-        # Combine sides
+        right.addWidget(self.graph_label, 1)
+
+        # ── Assemble ────────────────────────────────────────────────────────
         left_widget = QWidget()
-        left_widget.setLayout(left_layout)
-        left_widget.setMaximumWidth(left_max)
-        left_widget.setMinimumWidth(left_min)
-        
+        left_widget.setLayout(left)
+        left_widget.setMinimumWidth(380)
+        left_widget.setMaximumWidth(460)
+
         main_layout.addWidget(left_widget, 0)
-        main_layout.addLayout(right_layout, 1)
-        
+        main_layout.addLayout(right, 1)
         self.setLayout(main_layout)
+
     
     def update_data(self, unit_data):
         """Update widget with data from hub"""
@@ -332,11 +304,17 @@ class UnitDataWidget(QWidget):
         
         # Status
         if unit_data.get("connected"):
-            self.status_label.setText("🟢 Connected")
-            self.status_label.setStyleSheet("color: #6bcf7f; font-weight: bold;")
+            self.status_label.setText("🟢  Connected")
+            self.status_label.setStyleSheet(
+                "color: #6bcf7f; background-color: #1e2535; "
+                "border-radius: 4px; padding: 3px 8px; font-weight: bold;"
+            )
         else:
-            self.status_label.setText("🔴 Disconnected")
-            self.status_label.setStyleSheet("color: #ff6b6b; font-weight: bold;")
+            self.status_label.setText("🔴  Disconnected")
+            self.status_label.setStyleSheet(
+                "color: #ff6b6b; background-color: #1e2535; "
+                "border-radius: 4px; padding: 3px 8px; font-weight: bold;"
+            )
         
         # Network info
         ip = unit_data.get("ip_address", "N/A")
@@ -385,14 +363,23 @@ class UnitDataWidget(QWidget):
 
         if llm_status == "processing":
             dots = "." * ((int(datetime.now().timestamp()) % 3) + 1)
-            self.llm_status_label.setText(f"🔄 Analyzing{dots}")
-            self.llm_status_label.setStyleSheet("color: #ffd93d; font-weight: bold; padding: 2px;")
+            self.llm_status_label.setText(f"🔄  Analyzing{dots}")
+            self.llm_status_label.setStyleSheet(
+                "color: #ffd93d; background-color: #151e2e; "
+                "border-radius: 4px; padding: 4px 8px; font-weight: bold;"
+            )
         elif llm_status == "ready":
-            self.llm_status_label.setText("✅ Analysis ready")
-            self.llm_status_label.setStyleSheet("color: #6bcf7f; font-weight: bold; padding: 2px;")
+            self.llm_status_label.setText("✅  Analysis ready")
+            self.llm_status_label.setStyleSheet(
+                "color: #6bcf7f; background-color: #151e2e; "
+                "border-radius: 4px; padding: 4px 8px; font-weight: bold;"
+            )
         else:
-            self.llm_status_label.setText("⏳ Waiting for data...")
-            self.llm_status_label.setStyleSheet("color: #95e1d3; font-weight: bold; padding: 2px;")
+            self.llm_status_label.setText("⏳  Waiting for data...")
+            self.llm_status_label.setStyleSheet(
+                "color: #95e1d3; background-color: #151e2e; "
+                "border-radius: 4px; padding: 4px 8px; font-weight: bold;"
+            )
 
         # Time since last analysis
         if llm_ts_str:
@@ -402,19 +389,29 @@ class UnitDataWidget(QWidget):
                 self._llm_timestamp = None
         self._refresh_llm_time()
 
-        self.activity_label.setText(activity_name)
+        # Activity: show only the first clean sentence from the LLM summary
+        raw_name = activity_name.strip()
+        # Strip leading markdown bold markers
+        raw_name = raw_name.lstrip("*# ").strip()
+        # Take up to the first sentence boundary
+        for sep in ('. ', '! ', '\n', ':'):
+            idx = raw_name.find(sep)
+            if 0 < idx < 120:
+                raw_name = raw_name[:idx + 1].strip()
+                break
+        self.activity_label.setText(raw_name[:120] if raw_name else "—")
 
         if confidence > 0:
             self.confidence_label.setText(f"Confidence: {confidence:.0%}")
             if confidence > 0.7:
-                self.confidence_label.setStyleSheet("color: #6bcf7f; padding: 2px;")
+                self.confidence_label.setStyleSheet("color: #6bcf7f; padding: 2px 4px;")
             elif confidence > 0.4:
-                self.confidence_label.setStyleSheet("color: #ffd93d; padding: 2px;")
+                self.confidence_label.setStyleSheet("color: #ffd93d; padding: 2px 4px;")
             else:
-                self.confidence_label.setStyleSheet("color: #ff6b6b; padding: 2px;")
+                self.confidence_label.setStyleSheet("color: #ff6b6b; padding: 2px 4px;")
         else:
             self.confidence_label.setText("Confidence: N/A")
-            self.confidence_label.setStyleSheet("color: #888888; padding: 2px;")
+            self.confidence_label.setStyleSheet("color: #888888; padding: 2px 4px;")
 
         # Reasoning snippet
         if llm_reasoning_text:
@@ -444,7 +441,7 @@ class UnitDataWidget(QWidget):
             plt.close('all')
             
             # Create a new matplotlib figure for rendering with high resolution
-            fig = plt.figure(figsize=(6.5, 4.0), dpi=120, facecolor='#1a1a1a')
+            fig = plt.figure(figsize=(4.8, 2.8), dpi=110, facecolor='#1a1a1a')
             ax1 = fig.add_subplot(111)
             
             # Style the background
@@ -552,9 +549,9 @@ class UnitDataWidget(QWidget):
             
             # Use sensible defaults if widget hasn't been rendered yet
             if label_height < 100:
-                label_height = 250
+                label_height = 200
             if label_width < 100:
-                label_width = 400
+                label_width = 300
             
             # Scale to fit available space
             max_height = label_height - 10
@@ -602,14 +599,21 @@ class PhantomSenseApp(QMainWindow):
         # Dark theme
         self.setStyleSheet("""
             QMainWindow {
-                background-color: #1a1a1a;
+                background-color: #0f1520;
+            }
+            QWidget {
+                background-color: #0f1520;
+                color: #e8eaf0;
             }
             QLabel {
-                color: #ffffff;
+                color: #e8eaf0;
             }
             QFrame {
-                background-color: #2b2b2b;
-                border: 1px solid #3a3a3a;
+                background-color: #1e2535;
+                border: 1px solid #2d3a50;
+            }
+            QScrollArea {
+                border: none;
             }
         """)
         
@@ -642,21 +646,27 @@ class PhantomSenseApp(QMainWindow):
         main_layout.setSpacing(spacing)
         
         # Header
-        header = QLabel("🌐 PhantomSense Hub - Multi-Unit Monitor")
+        header = QLabel("🌐  PhantomSense Hub — Multi-Unit Monitor")
         header_font = QFont()
-        header_font.setPointSize(13)
+        header_font.setPointSize(14)
         header_font.setBold(True)
         header.setFont(header_font)
-        header.setStyleSheet("color: #6bcf7f;")
+        header.setStyleSheet(
+            "color: #6bcf7f; background-color: #1a2030; "
+            "border-radius: 5px; padding: 8px 14px;"
+        )
         main_layout.addWidget(header)
         
         # Hub status
-        self.hub_status = QLabel("🔴 Connecting...")
+        self.hub_status = QLabel("🔴  Connecting...")
         hub_status_font = QFont()
         hub_status_font.setPointSize(11)
         hub_status_font.setBold(True)
         self.hub_status.setFont(hub_status_font)
-        self.hub_status.setStyleSheet("color: #ff6b6b; padding: 8px; background-color: #2b2b2b; border-radius: 3px;")
+        self.hub_status.setStyleSheet(
+            "color: #ff6b6b; padding: 6px 12px; "
+            "background-color: #1a2030; border-radius: 4px;"
+        )
         main_layout.addWidget(self.hub_status)
         
         # Units container
@@ -665,17 +675,17 @@ class PhantomSenseApp(QMainWindow):
         units_layout.setSpacing(spacing)
         
         # Unit 1
-        unit_min_height = cfg_layout.get('unit_min_height', 300)
+        unit_min_height = cfg_layout.get('unit_min_height', 310)
         self.unit1_widget = UnitDataWidget("1", "Unit 1 - PhantomSense-Unit-1")
         self.unit1_widget.setMinimumHeight(unit_min_height)
         units_layout.addWidget(self.unit1_widget)
         
         # Separator
         separator = QFrame()
-        separator.setStyleSheet("QFrame { background-color: #3a3a3a; height: 1px; border: none; }")
+        separator.setStyleSheet("QFrame { background-color: #2d3a50; height: 1px; border: none; }")
         separator.setMaximumHeight(1)
         units_layout.addWidget(separator)
-        
+
         # Unit 2
         self.unit2_widget = UnitDataWidget("2", "Unit 2 - PhantomSense-Unit-2")
         self.unit2_widget.setMinimumHeight(unit_min_height)
@@ -683,29 +693,47 @@ class PhantomSenseApp(QMainWindow):
 
         # Separator
         separator2 = QFrame()
-        separator2.setStyleSheet("QFrame { background-color: #3a3a3a; height: 1px; border: none; }")
-        separator2.setMaximumHeight(1)
+        separator2.setStyleSheet("QFrame { background-color: #2d3a50; height: 1px; border: none; }")
         units_layout.addWidget(separator2)
 
         # Unit 3 - Franklin WiFi
         self.unit3_widget = UnitDataWidget("3", "Unit 3 - Franklin WiFi Sensor")
         self.unit3_widget.setMinimumHeight(unit_min_height)
         units_layout.addWidget(self.unit3_widget)
-        
-        main_layout.addLayout(units_layout, 1)
+
+        units_layout.addStretch()
+
+        # Wrap units in a scroll area so all 3 panels are reachable
+        units_container = QWidget()
+        units_container.setLayout(units_layout)
+        scroll = QScrollArea()
+        scroll.setWidget(units_container)
+        scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        scroll.setStyleSheet(
+            "QScrollArea { border: none; background-color: #0f1520; }"
+            "QScrollBar:vertical { background: #1a2030; width: 8px; border-radius: 4px; }"
+            "QScrollBar::handle:vertical { background: #3a4a60; border-radius: 4px; min-height: 20px; }"
+            "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0px; }"
+        )
+        main_layout.addWidget(scroll, 1)
         
         # Footer stats
         stats_frame = QFrame()
-        stats_frame.setStyleSheet("QFrame { background-color: #2b2b2b; border-radius: 3px; padding: 8px; }")
-        stats_frame.setMaximumHeight(35)
+        stats_frame.setStyleSheet(
+            "QFrame { background-color: #1a2030; border-radius: 4px; "
+            "border: 1px solid #2d3a50; padding: 4px; }"
+        )
+        stats_frame.setMaximumHeight(50)
         stats_layout = QHBoxLayout()
         stats_layout.setContentsMargins(5, 5, 5, 5)
         
         self.stats_label = QLabel("Waiting for data...")
         stats_font = QFont()
-        stats_font.setPointSize(9)
+        stats_font.setPointSize(11)
         self.stats_label.setFont(stats_font)
-        self.stats_label.setStyleSheet("color: #95e1d3; padding: 4px;")
+        self.stats_label.setStyleSheet("color: #a8c0d0; padding: 4px 8px;")
         stats_layout.addWidget(self.stats_label)
         stats_layout.addStretch()
         
@@ -723,8 +751,11 @@ class PhantomSenseApp(QMainWindow):
     def on_hub_data(self, data):
         """Handle data from hub"""
         # Update hub status
-        self.hub_status.setText("🟢 Hub Connected")
-        self.hub_status.setStyleSheet("color: #6bcf7f;")
+        self.hub_status.setText("🟢  Hub Connected")
+        self.hub_status.setStyleSheet(
+            "color: #6bcf7f; padding: 6px 12px; "
+            "background-color: #1a2030; border-radius: 4px; font-weight: bold;"
+        )
         
         # Extract unit data
         units = data.get("units", {})
@@ -741,9 +772,9 @@ class PhantomSenseApp(QMainWindow):
         unit3_data = units.get("3") or units.get("unit3")
         self.unit3_widget.update_data(unit3_data)
         
-        # Update stats
-        total_frames = data.get("total_frames", 0)
-        total_activities = data.get("total_activities", 0)
+        # Update stats — sum frame/activity counts from each unit (no top-level field in API)
+        total_frames = sum(u.get("frame_count", 0) for u in units.values())
+        total_activities = sum(u.get("activity_count", 0) for u in units.values())
         connected = len([u for u in units.values() if u.get('connected')])
         total = len(units)
         self.stats_label.setText(
@@ -753,8 +784,11 @@ class PhantomSenseApp(QMainWindow):
     
     def on_hub_error(self, error_msg):
         """Handle errors from hub"""
-        self.hub_status.setText(f"🔴 Error: {error_msg}")
-        self.hub_status.setStyleSheet("color: #ff6b6b;")
+        self.hub_status.setText(f"🔴  Error: {error_msg}")
+        self.hub_status.setStyleSheet(
+            "color: #ff6b6b; padding: 6px 12px; "
+            "background-color: #1a2030; border-radius: 4px;"
+        )
     
     def closeEvent(self, event):
         """Cleanup on close"""

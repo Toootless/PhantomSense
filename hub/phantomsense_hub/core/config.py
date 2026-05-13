@@ -127,7 +127,7 @@ class HubConfig(BaseSettings):
     # Hub settings
     MAX_UNITS: int = 10
     BUFFER_SIZE: int = 10000
-    AGGREGATION_INTERVAL_MS: int = 100  # Process data every 100ms
+    AGGREGATION_INTERVAL_MS: int = 1000  # Process data every 1s
     
     class Config:
         env_file = PROJECT_ROOT / "hub" / ".env"

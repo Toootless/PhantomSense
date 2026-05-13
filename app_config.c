@@ -1,5 +1,4 @@
-#include "app_config.h"
-#include "esp_log.h"
+e "app_config.h"e "esp_log.h"
 #include <stddef.h>
 
 static const char *TAG = "APP_CONFIG";

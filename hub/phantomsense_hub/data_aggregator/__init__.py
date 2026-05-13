@@ -140,7 +140,7 @@ class DataAggregator:
         
         self.stats["units_active"] = len(hub_state.units)
         
-        if self.stats["total_csi_frames"] % 100 == 0:
+        if self.stats["total_csi_frames"] > 0 and self.stats["total_csi_frames"] % 50 == 0:
             logger.info(
                 f"Aggregator stats: "
                 f"frames={self.stats['total_csi_frames']}, "
