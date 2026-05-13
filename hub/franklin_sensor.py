@@ -366,25 +366,36 @@ async def sensor_loop(hub_url: str, unit_id: int, post_interval: float) -> None:
             # ── Sample ──────────────────────────────────────────────────────
             try:
                 quality, rx_mbps, tx_mbps = await asyncio.to_thread(monitor.poll)
-                buffer.append((time.time(), quality, rx_mbps, tx_mbps))
+                if quality > 0:
+                    # Only buffer valid readings; quality=0 means the interface
+                    # is not associated (WlanQueryInterface error 5023 / netsh
+                    # returns nothing) — don't pollute the buffer with zeros.
+                    buffer.append((time.time(), quality, rx_mbps, tx_mbps))
+                else:
+                    log.debug("Skipping zero-quality sample (interface not associated)")
             except Exception as exc:
                 log.warning(f"WiFi poll error: {exc}")
 
             # ── POST to hub ─────────────────────────────────────────────────
-            if time.monotonic() >= next_post and buffer:
-                payload = compute_metrics(list(buffer))
-                payload["unit_id"] = unit_id
+            if time.monotonic() >= next_post:
+                # Only post if we have at least one valid (non-zero) sample
+                valid_samples = [s for s in buffer if s[1] > 0]
+                if valid_samples:
+                    payload = compute_metrics(valid_samples)
+                    payload["unit_id"] = unit_id
 
-                try:
-                    resp = await client.post(update_url, json=payload)
-                    if resp.status_code == 200:
-                        log.debug(f"POST /update → {resp.status_code}")
-                    else:
-                        log.warning(f"POST /update returned {resp.status_code}: {resp.text[:120]}")
-                except httpx.ConnectError:
-                    log.warning(f"Cannot reach hub at {hub_url} – will retry")
-                except Exception as exc:
-                    log.error(f"POST failed: {exc}")
+                    try:
+                        resp = await client.post(update_url, json=payload)
+                        if resp.status_code == 200:
+                            log.debug(f"POST /update → {resp.status_code}")
+                        else:
+                            log.warning(f"POST /update returned {resp.status_code}: {resp.text[:120]}")
+                    except httpx.ConnectError:
+                        log.warning(f"Cannot reach hub at {hub_url} – will retry")
+                    except Exception as exc:
+                        log.error(f"POST failed: {exc}")
+                else:
+                    log.warning("No valid WiFi samples this interval – skipping POST (interface not associated?)")
 
                 next_post += post_interval
 
