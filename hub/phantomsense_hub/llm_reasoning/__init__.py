@@ -21,7 +21,7 @@ class LLMReasoner:
     """LLM-based reasoning engine for activity interpretation"""
     
     def __init__(self):
-        self.ollama_client = AsyncClient(host=config.ollama.OLLAMA_HOST)
+        self.ollama_client = AsyncClient(base_url=config.ollama.OLLAMA_HOST)
         self.is_available = False
         self.reasoning_cache = {}
         self.context_window = []  # Activity context for reasoning
