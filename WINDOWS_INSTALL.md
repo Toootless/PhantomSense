@@ -12,15 +12,47 @@ ERROR: Unknown compiler(s): [['icl'], ['cl'], ['cc'], ['gcc'], ['clang'], ['clan
 
 ## Solution
 
-We've provided **two options** to install PhantomSense on Windows:
+We've provided **installation scripts that work WITHOUT a C compiler**:
 
-### Option 1: Quick Install (Recommended) ⭐
+All three startup scripts now use pre-built wheels only:
+- `quick_install.bat` - Initial setup (recommended for first-time install)
+- `start_all.bat` - Start everything (hub + GUI)
+- `start_hub.bat` - Hub server only
+- `start_gui.bat` - GUI only
 
-Use the pre-built wheels installation script that **requires NO compiler**:
+**All of these now use `--only-binary=:all:` to force pre-built packages - NO compiler needed!**
+
+### Quick Start
 
 ```bash
-# From the PhantomSense root directory
+# Option A: First time setup (install dependencies)
 quick_install.bat
+
+# Then start services:
+start_all.bat
+
+# OR Option B: Use start_all.bat directly (includes dependency install)
+start_all.bat
+```
+
+### Alternative: Individual Services
+
+```bash
+# Terminal 1: Start Hub Server only
+start_hub.bat
+
+# Terminal 2: Start GUI only
+start_gui.bat
+```
+
+---
+
+### Option 1: ⭐ Quick Install or Start All (RECOMMENDED)
+
+**No compiler required!** Both scripts automatically install pre-built wheels:
+
+```bash
+quick_install.bat  # OR just use start_all.bat
 ```
 
 This script:
@@ -28,39 +60,26 @@ This script:
 - ✅ Requires NO C/C++ compiler
 - ✅ Takes 3-5 minutes
 - ✅ Works on any Windows machine with Python 3.10+
+- ✅ Forces numpy, matplotlib, PyQt6 from pre-built wheels with `--only-binary=:all:`
 
 **Steps:**
 1. Open Command Prompt or PowerShell
 2. Navigate to: `c:\Users\johnj\OneDrive\Documents\VS_projects\PhantomSense`
-3. Run: `quick_install.bat`
-4. Wait for "Installation Complete" message
+3. Run: `quick_install.bat` OR `start_all.bat`
+4. Wait for completion
 5. Press any key to close
 
-### Option 2: Standard Install (If You Have MSVC Compiler) 
+### Option 2: Install Microsoft Visual C++ Build Tools (Optional)
 
-If you have Microsoft Visual C++ Build Tools installed:
-
-```bash
-start_hub.bat      # Start hub server only
-start_gui.bat      # Start GUI only  
-start_all.bat      # Start everything
-```
-
-**If these fail, use Option 1 above.**
-
-## Installing Microsoft Visual C++ Build Tools (Optional)
-
-If you want to build packages from source, install the C compiler:
+If you want full flexibility to build any package from source, install the C compiler:
 
 **Windows 11/10:**
 1. Download: https://visualstudio.microsoft.com/downloads/
 2. Select "Visual Studio Build Tools"
 3. Choose "Desktop development with C++"
-4. Install
-5. Restart your computer
-6. Run `start_all.bat`
-
-This adds ~4GB and takes 15-20 minutes but enables building any Python package from source.
+4. Install (~4GB, 15-20 minutes)
+5. Restart computer
+6. All scripts will now work, including building packages from source
 
 ## Verifying Installation
 

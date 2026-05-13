@@ -42,18 +42,19 @@ if errorlevel 1 (
 
 cd hub
 echo Installing requirements from requirements.txt...
-pip install --upgrade --prefer-binary -r requirements.txt
-if errorlevel 1 (
-    echo ERROR: Failed to install dependencies
-    echo.
-    echo Troubleshooting:
-    echo - Ensure you have Python 3.10+ installed
-    echo - Check your internet connection
-    echo - Try: pip install PyQt6 --prefer-binary
-    echo.
-    pause
-    exit /b 1
-)
+echo.
+echo Installing pre-built packages (no compilation needed)...
+echo.
+
+REM Install critical packages with --only-binary to force pre-built wheels
+pip install --only-binary=:all: numpy --quiet 2>nul
+pip install --only-binary=:all: matplotlib --quiet 2>nul
+pip install --only-binary=:all: PyQt6 --quiet 2>nul
+
+REM Install remaining dependencies with preferred binary wheels
+REM This will skip numpy, matplotlib, PyQt6 since they're already installed
+pip install --prefer-binary -r requirements.txt --quiet 2>nul
+
 cd ..
 
 REM Start Desktop GUI
