@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Optional
 
 from .config import config
+from . import db
 
 # Configure logging
 LOG_DIR = config.LOG_FILE.parent
@@ -48,7 +49,7 @@ class HubState:
             self.units[unit_id]['last_seen'] = asyncio.get_event_loop().time()
     
     async def add_activity(self, unit_id: str, activity: dict):
-        """Add activity classification to buffer"""
+        """Add activity classification to buffer and persist to SQLite"""
         async with self._lock:
             activity['unit_id'] = unit_id
             activity['timestamp'] = asyncio.get_event_loop().time()
@@ -57,6 +58,9 @@ class HubState:
             # Keep buffer at max size
             if len(self.activity_buffer) > config.BUFFER_SIZE:
                 self.activity_buffer.pop(0)
+        
+        # Persist to DB outside the lock (non-blocking)
+        await db.save_activity(unit_id, activity)
     
     async def get_system_status(self) -> dict:
         """Get current system status"""
@@ -86,8 +90,18 @@ async def initialize_hub():
     
     # Ensure data directories exist
     (config.LOG_FILE.parent).mkdir(parents=True, exist_ok=True)
-    (config.database.DB_PATH.parent).mkdir(parents=True, exist_ok=True)
-    
+
+    # Initialise SQLite database
+    db.init_db(config.database.DB_PATH)
+
+    # Restore last LLM reasoning results into cache
+    from ..llm_reasoning import llm_reasoner
+    restored = await db.load_last_reasoning_all()
+    for uid, result in restored.items():
+        llm_reasoner.reasoning_cache[uid] = result
+    if restored:
+        logger.info(f"Restored LLM cache for units: {list(restored.keys())}")
+
     hub_state.is_running = True
     logger.info("Hub initialization complete")
 

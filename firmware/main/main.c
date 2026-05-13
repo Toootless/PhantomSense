@@ -18,6 +18,11 @@ static const char *TAG = "MAIN";
 static TaskHandle_t csi_task_handle = NULL;
 static TaskHandle_t signal_process_task_handle = NULL;
 
+// Shared CSI metrics updated by csi_acquisition_task, read by hub_update_task
+static volatile float g_csi_amplitude = -50.0f;
+static volatile float g_csi_noise_floor = -80.0f;
+static volatile uint32_t g_csi_frame_count = 0;
+
 // FreeRTOS event group for synchronization
 static EventGroupHandle_t status_event_group = NULL;
 #define WIFI_CONNECTED_BIT BIT0
@@ -93,15 +98,38 @@ static void csi_acquisition_task(void *pvParameter) {
     }
     
     ESP_LOGI(TAG, "CSI acquisition started successfully");
-    
+
+    csi_frame_t frame;
+    uint32_t frame_count = 0;
+
     while (1) {
-        // Get buffered CSI frames (if any)
-        uint32_t buffer_count = csi_driver_get_buffer_count();
-        if (buffer_count > 0) {
-            ESP_LOGD(TAG, "CSI frames buffered: %ld", buffer_count);
+        // Pull all available frames from the driver queue
+        while (csi_driver_get_latest_frame(&frame) == ESP_OK) {
+            // frame.rssi is stored as uint8_t but holds a signed int8_t from WiFi driver
+            float amplitude = (float)(int8_t)frame.rssi;
+            float noise_floor = (float)(int8_t)frame.noise_floor;
+
+            // Compute mean subcarrier amplitude when data is present
+            if (frame.len > 0 && frame.amplitude) {
+                int32_t sum = 0;
+                for (int i = 0; i < frame.len; i++) {
+                    sum += frame.amplitude[i];
+                }
+                amplitude = (float)sum / (float)frame.len;
+            }
+
+            g_csi_amplitude = amplitude;
+            g_csi_noise_floor = noise_floor;
+            frame_count++;
+            g_csi_frame_count = frame_count;
+
+            if (frame_count % 100 == 0) {
+                ESP_LOGI(TAG, "CSI frames: %lu  amp=%.1f  nf=%.1f",
+                         frame_count, amplitude, noise_floor);
+            }
         }
-        
-        vTaskDelay(pdMS_TO_TICKS(1000));
+
+        vTaskDelay(pdMS_TO_TICKS(40));  // ~25 polls/sec
     }
 }
 
@@ -127,24 +155,26 @@ static void signal_processing_task(void *pvParameter) {
     
     ESP_LOGI(TAG, "Signal processor initialized");
     
-    uint32_t frames_processed = 0;
-    
+    uint32_t last_logged_count = 0;
+
     while (1) {
         // Wait for system to be fully initialized
         xEventGroupWaitBits(status_event_group, WIFI_CONNECTED_BIT | HUB_CONNECTED_BIT,
                            pdFALSE, pdTRUE, pdMS_TO_TICKS(100));
-        
+
         // TODO: Process CSI frames and publish results
         // - Get CSI frame from driver
         // - Extract features using signal processor
         // - Classify activity using TinyML model
         // - Publish results via MQTT
-        
-        signal_processor_get_stats(&frames_processed);
-        if (frames_processed % 100 == 0) {
-            ESP_LOGI(TAG, "Processed %ld frames", frames_processed);
+
+        uint32_t current = g_csi_frame_count;
+        if (current > 0 && current != last_logged_count && current % 100 == 0) {
+            ESP_LOGI(TAG, "CSI frames acquired: %lu  amp=%.1f  nf=%.1f",
+                     current, g_csi_amplitude, g_csi_noise_floor);
+            last_logged_count = current;
         }
-        
+
         vTaskDelay(pdMS_TO_TICKS(250));
     }
 }
@@ -170,8 +200,8 @@ static void hub_update_task(void *pvParameter) {
                 config->unit_name,
                 wifi_get_rssi(),
                 wifi_get_ip_address(),
-                -50.0f,  // Placeholder CSI amplitude
-                -80.0f   // Placeholder noise floor
+                g_csi_amplitude,
+                g_csi_noise_floor
             );
             
             if (err == ESP_OK) {
@@ -239,9 +269,11 @@ void app_main(void) {
         ESP_LOGE(TAG, "Failed to create status_monitor task");
     }
     
-    ESP_LOGI(TAG, "Skipping CSI acquisition task (ESP-IDF v6.0.1 compatibility pending)");
-    // TODO: Fix CSI driver for ESP-IDF v6.0.1
-    // esp_wifi_set_csi_config() needs investigation
+    ESP_LOGI(TAG, "Creating CSI acquisition task...");
+    if (xTaskCreate(csi_acquisition_task, "csi_acquisition",
+               8192, NULL, tskIDLE_PRIORITY + 3, &csi_task_handle) != pdPASS) {
+        ESP_LOGE(TAG, "Failed to create csi_acquisition task");
+    }
     
     ESP_LOGI(TAG, "Creating signal processing task...");
     // Create task for signal processing

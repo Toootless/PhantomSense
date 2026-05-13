@@ -13,6 +13,7 @@ from ollama import AsyncClient
 
 from ..core.config import config
 from ..core import hub_state, get_logger
+from ..core import db
 
 logger = get_logger(__name__)
 
@@ -23,6 +24,7 @@ class LLMReasoner:
     def __init__(self):
         self.ollama_client = AsyncClient(base_url=config.ollama.OLLAMA_HOST)
         self.is_available = False
+        self.is_reasoning = False
         self.reasoning_cache = {}
         self.context_window = []  # Activity context for reasoning
         self.max_context_size = 50  # Keep last 50 activities
@@ -60,6 +62,7 @@ class LLMReasoner:
             logger.warning("Ollama not available, skipping reasoning")
             return {"reasoning": "Ollama unavailable", "confidence": 0}
         
+        self.is_reasoning = True
         try:
             # Build prompt from recent activities
             prompt = self._build_activity_prompt(unit_id, activity_history)
@@ -95,6 +98,9 @@ class LLMReasoner:
             # Cache result
             self.reasoning_cache[unit_id] = reasoning_result
             
+            # Persist to SQLite
+            await db.save_reasoning(unit_id, reasoning_result)
+            
             return reasoning_result
             
         except Exception as e:
@@ -104,6 +110,8 @@ class LLMReasoner:
                 "confidence": 0,
                 "activity_summary": "Unable to reason",
             }
+        finally:
+            self.is_reasoning = False
     
     async def analyze_patterns(self, time_window_hours: int = 1) -> dict:
         """Analyze activity patterns over time window"""

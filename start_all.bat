@@ -10,8 +10,9 @@ echo ================================================================
 echo.
 echo This will start:
 echo  1. Hub Server (REST API on port 5000)
-echo  2. Desktop GUI (PyQt6 visualization)
-echo  3. LLM Processing Service (via Ollama)
+echo  2. Franklin WiFi Sensor (Unit 3 - local WiFi signal monitoring)
+echo  3. Desktop GUI (PySide6 visualization)
+echo  4. LLM Processing Service (via Ollama)
 echo.
 
 cd /d "%~dp0"
@@ -74,8 +75,18 @@ echo Starting Hub Server on http://localhost:5000
 echo ================================================================
 start "PhantomSense Hub" cmd /k "cd hub && ""%HUB_VENV%\Scripts\activate.bat"" && python hub.py"
 
-REM Give hub time to start
-timeout /t 3 /nobreak
+REM Give hub time to start before sensor connects
+timeout /t 4 /nobreak
+
+REM Start Franklin WiFi Sensor in a new terminal window
+echo.
+echo ================================================================
+echo Starting Franklin WiFi Sensor (Unit 3)
+echo ================================================================
+start "PhantomSense Franklin WiFi" cmd /k "cd hub && ""%HUB_VENV%\Scripts\activate.bat"" && python franklin_sensor.py --hub http://localhost:5000 --unit-id 3 --interval 5"
+
+REM Give sensor a moment to register before GUI opens
+timeout /t 2 /nobreak
 
 REM Start Desktop GUI in a new terminal window
 echo.
@@ -90,9 +101,10 @@ echo ================================================================
 echo System Started!
 echo ================================================================
 echo.
-echo Hub Server:        http://localhost:5000
-echo GUI:               Running in separate window
-echo Ollama LLM:        http://localhost:11434 (if running)
+echo Hub Server:            http://localhost:5000
+echo Franklin WiFi Sensor:  Running as Unit 3 (local WiFi signal)
+echo GUI:                   Running in separate window
+echo Ollama LLM:            http://localhost:11434 (if running)
 echo.
 echo To monitor devices:
 echo   http://localhost:5000/devices

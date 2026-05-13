@@ -11,8 +11,9 @@ Traditional motion sensors (PIR) are binary and unreliable. Cameras are intrusiv
 
 ### How it works:
 1.  **Nodes:** Distributed ESP32-S3 units scan for subcarrier amplitude and phase disturbances caused by the human body.
-2.  **Edge AI:** Local inference on the S3 classifies activities (Walking, Sitting, Falling) using TinyML.
-3.  **LLM Reasoning:** Events are sent to Franklin hub where a Large Language Model interprets movement patterns into natural language insights.
+2.  **Franklin WiFi Sensor:** The Franklin basestation itself contributes a third data stream via its own WiFi adapter — signal quality variation is used as an additional motion indicator.
+3.  **Edge AI:** Local inference on the S3 classifies activities (Walking, Sitting, Falling) using TinyML.
+4.  **LLM Reasoning:** All sensor streams (ESP32 CSI + Franklin WiFi) are sent to the Franklin hub where a Large Language Model (Ollama `llama3.1:8b`) interprets movement patterns into natural language insights.
 
 ### Quick Start
 
@@ -31,6 +32,35 @@ cd hub
 setup.bat   # Windows
 
 python hub.py  # Start the hub
+```
+
+**Quick Start - Run Everything (Windows):**
+```batch
+:: Start Hub + Franklin WiFi Sensor + GUI + LLM processing in separate windows
+start_all.bat
+
+:: Or start components individually:
+start_hub.bat        :: Hub REST API on http://localhost:5000
+start_gui.bat        :: Desktop visualization (PySide6)
+
+:: Franklin WiFi Sensor (Unit 3) - run from hub directory
+cd hub
+.\venv\Scripts\python franklin_sensor.py
+```
+
+**Quick Start - Manual (All Platforms):**
+```bash
+# Terminal 1: Start Hub Server
+cd hub
+python hub.py
+
+# Terminal 2: Start Franklin WiFi Sensor (Unit 3)
+cd hub
+python franklin_sensor.py
+
+# Terminal 3: Start Desktop GUI
+cd hub
+python phantomsense_desktop.py
 ```
 
 Access the hub at: `http://localhost:5000`

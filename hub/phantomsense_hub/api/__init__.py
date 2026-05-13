@@ -11,6 +11,7 @@ from pydantic import BaseModel
 
 from ..core.config import config
 from ..core import hub_state, get_logger
+from ..core import db
 from ..data_aggregator import data_aggregator
 from ..llm_reasoning import llm_reasoner
 
@@ -225,6 +226,51 @@ async def get_metrics():
     }
 
 
+# ==================== History & Reprocess Endpoints ====================
+
+@app.get("/history/{unit_id}/activities", tags=["History"])
+async def get_activity_history(unit_id: str, limit: int = 500):
+    """Return saved activity rows from SQLite for a unit (oldest first)."""
+    activities = await db.get_activities(unit_id, limit=limit)
+    return {"unit_id": unit_id, "count": len(activities), "activities": activities}
+
+
+@app.get("/history/{unit_id}/reasoning", tags=["History"])
+async def get_reasoning_history(unit_id: str, limit: int = 50):
+    """Return past LLM reasoning results for a unit (newest first)."""
+    history = await db.get_reasoning_history(unit_id, limit=limit)
+    return {"unit_id": unit_id, "count": len(history), "reasoning_history": history}
+
+
+@app.get("/history/units", tags=["History"])
+async def list_history_units():
+    """Return every unit_id that has ever recorded activity data."""
+    unit_ids = await db.get_all_unit_ids()
+    return {"unit_ids": unit_ids, "count": len(unit_ids)}
+
+
+@app.post("/reprocess/{unit_id}", tags=["History"])
+async def reprocess_unit(unit_id: str, limit: int = 100):
+    """
+    Load the last *limit* saved activities for a unit from SQLite and run the
+    LLM over them again, updating the reasoning cache and saving the new result.
+    Useful after the hub restarts or when you want a fresh analysis of history.
+    """
+    if not llm_reasoner.is_available:
+        raise HTTPException(status_code=503, detail="Ollama not available")
+
+    activities = await db.get_activities(unit_id, limit=limit)
+    if not activities:
+        raise HTTPException(status_code=404, detail=f"No historical data for unit {unit_id}")
+
+    result = await llm_reasoner.reason_about_activity(unit_id, activities[-10:])
+    return {
+        "unit_id": unit_id,
+        "activities_used": len(activities),
+        "result": result,
+    }
+
+
 # ==================== Device API Endpoints (for Desktop App) ====================
 
 @app.get("/devices", tags=["Devices"])
@@ -236,6 +282,23 @@ async def get_all_devices():
         activities = [a for a in hub_state.activity_buffer if a.get('unit_id') == unit_id]
         latest_activity = activities[-1] if activities else {"name": "Idle", "confidence": 0.0}
         latest_csi = unit_info.get("latest_csi", {"amplitude_mean": 0.0, "noise_floor": -80})
+
+        # Enrich with LLM reasoning cache
+        llm_cache = llm_reasoner.reasoning_cache.get(unit_id)
+        if llm_reasoner.is_reasoning:
+            llm_status = "processing"
+        elif llm_cache:
+            llm_status = "ready"
+        else:
+            llm_status = "waiting"
+
+        activity_name = (
+            llm_cache.get("activity_summary", "Collecting data...") if llm_cache
+            else ("Collecting data..." if activities else "Waiting for sensor...")
+        )
+        activity_confidence = llm_cache.get("confidence", 0) / 100.0 if llm_cache else 0.0
+        llm_reasoning = llm_cache.get("reasoning", "") if llm_cache else ""
+        llm_timestamp = llm_cache.get("timestamp", "") if llm_cache else ""
         
         units[unit_id] = {
             "unit_id": unit_id,
@@ -249,11 +312,14 @@ async def get_all_devices():
                 "timestamp": latest_csi.get("timestamp", 0),
             },
             "latest_activity": {
-                "name": latest_activity.get("name", "Unknown"),
-                "confidence": latest_activity.get("confidence", 0.0),
+                "name": activity_name,
+                "confidence": activity_confidence,
                 "timestamp": latest_activity.get("timestamp", 0),
             },
-            "frame_count": len([f for f in hub_state.latest_data.get("frames", []) if f.get("unit_id") == unit_id]),
+            "llm_status": llm_status,
+            "llm_reasoning": llm_reasoning,
+            "llm_timestamp": llm_timestamp,
+            "frame_count": hub_state.units[unit_id].get("frame_count", 0),
             "activity_count": len(activities),
         }
     
@@ -281,18 +347,36 @@ async def update_device_data(data: DeviceUpdateData):
     else:
         hub_state.units[unit_id]["status"] = "connected"
         hub_state.units[unit_id]["last_seen"] = datetime.now().timestamp()
+        hub_state.units[unit_id]["name"] = data.unit_name
         if data.ip_address:
             hub_state.units[unit_id]["ip_address"] = data.ip_address
     
     # Update RSSI and CSI data
     hub_state.units[unit_id]["rssi"] = data.rssi
-    hub_state.units[unit_id]["latest_csi"] = {
-        "amplitude_mean": data.csi_amplitude or 0.0,
-        "noise_floor": data.csi_noise_floor or -80,
+    csi_data = {
+        "amplitude_mean": data.csi_amplitude if data.csi_amplitude is not None else 0.0,
+        "noise_floor": data.csi_noise_floor if data.csi_noise_floor is not None else -80,
         "timestamp": data.timestamp_ms,
     }
-    
-    logger.debug(f"Updated device {unit_id}: RSSI={data.rssi}, CSI={data.csi_amplitude}")
+    hub_state.units[unit_id]["latest_csi"] = csi_data
+    hub_state.units[unit_id]["frame_count"] = hub_state.units[unit_id].get("frame_count", 0) + 1
+
+    # Feed data into aggregator pipeline so the LLM reasoning loop has data
+    noise_floor = data.csi_noise_floor if data.csi_noise_floor is not None else -80.0
+    amplitude = data.csi_amplitude if data.csi_amplitude is not None else 0.0
+    snr = amplitude - noise_floor
+    await hub_state.update_unit_data(unit_id, csi_data)
+    await hub_state.add_activity(unit_id, {
+        "timestamp_ms": data.timestamp_ms,
+        "activity_score": min(100, max(0, int(snr))),
+        "rssi": data.rssi,
+        "snr": round(snr, 2),
+        "phase_velocity": 0.0,
+        "amplitude_mean": round(amplitude, 2),
+        "noise_floor": noise_floor,
+    })
+
+    logger.debug(f"Updated device {unit_id}: RSSI={data.rssi}, CSI={data.csi_amplitude}, SNR={snr:.1f}")
     
     return {
         "status": "success",
